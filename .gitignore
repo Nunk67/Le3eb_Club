@@ -2,6 +2,11 @@ node_modules/
 build/
 dist/
 coverage/
+
+# Cursor / local harness (not app source; keep on your machine only)
+.cursor/
+.cursorignore
+
 .DS_Store
 *.log
 .env*
