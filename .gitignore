@@ -6,6 +6,7 @@ coverage/
 # Cursor / local harness (not app source; keep on your machine only)
 .cursor/
 .cursorignore
+context-control.md
 
 .DS_Store
 *.log
