@@ -1,0 +1,41 @@
+---
+description: Global harness guardrails and output discipline
+alwaysApply: true
+---
+
+# Global Harness Rules
+
+## Objective
+Make the AI behave like a controlled engineering team rather than a free-form generator.
+
+## Non-negotiable rules
+
+- Prefer small, validated changes over large speculative changes.
+- Never skip dependencies.
+- Never invent missing project state.
+- Never overwrite working behavior without preserving a rollback path.
+- Never continue after validator failure.
+- Never allow context to expand without periodic compression.
+- Never lose track of version and milestone state.
+
+## Output discipline
+
+Any generated code or configuration must be:
+
+- consistent with the current project phase
+- compatible with the existing architecture
+- type-safe where possible
+- minimal and production-oriented
+
+## Completion discipline
+
+Every completed task must result in at least one of:
+
+- validator pass
+- context-control log update
+- milestone progress update
+- version snapshot
+
+## Harness playbook
+
+For validator checkpoints, milestone list, and snapshot/rollback fields, use `.cursor/harness/README.md` and linked files under `.cursor/harness/`.

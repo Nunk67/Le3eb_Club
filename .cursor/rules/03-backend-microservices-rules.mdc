@@ -1,0 +1,38 @@
+---
+description: Backend architecture boundaries and service contracts
+alwaysApply: true
+---
+
+# Backend Microservices Rules
+
+## Objective
+Make the backend horizontally extensible, independently deployable, and maintainable.
+
+## Required architecture
+
+- API Gateway
+- independent domain services
+- explicit service boundaries
+- contract-driven communication
+- centralized auth and policy enforcement
+
+## Service domains
+
+- auth-service
+- user-service
+- companion-service
+- order-service
+- review-service
+- finance-service
+- admin-service
+
+## Service rules
+
+- services must not directly depend on each other's internals
+- communicate through API contracts or shared DTOs only
+- avoid circular dependencies
+- keep service responsibilities narrow
+
+## Migration rule
+
+Any feature addition must first identify the correct service boundary.

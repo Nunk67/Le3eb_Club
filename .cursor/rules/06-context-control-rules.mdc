@@ -1,0 +1,33 @@
+---
+description: Keep context compact with append-only memory logs
+alwaysApply: true
+---
+
+# Context Control Rules
+
+## Objective
+Keep the active context short while preserving long-term project memory.
+
+## Required behavior
+
+- after each major phase, write a summary to `context-control.md`
+- include timestamp in every summary entry
+- include progress, thoughts, suggestions, and supplementary notes
+- compress temporary reasoning out of active context
+- preserve only architecture, decisions, interfaces, and risks
+
+## Trigger points
+
+- after completing a command
+- after finishing a milestone
+- before switching to a different subsystem
+- when context size becomes large
+
+## Append-only rule
+
+`context-control.md` must only be appended to.
+
+## Extended reference (repo)
+
+- Harness map and validator loop: `.cursor/harness/README.md`
+- Entry shape and when to write: `.cursor/harness/context/entry-template.md`, `.cursor/harness/context/context-manager.md`

@@ -1,0 +1,41 @@
+---
+description: Enforce version snapshots and milestone validation
+alwaysApply: true
+---
+
+# Version and Milestone Rules
+
+## Objective
+Make development traceable and reversible.
+
+## Versioning
+
+- use semantic versioning for harness evolution
+- create snapshot notes after any meaningful architecture change
+
+## Milestones
+
+- every milestone needs acceptance criteria
+- every milestone needs validation gates
+- every milestone needs a version tag
+
+## Required records
+
+For each snapshot or milestone:
+
+- identifier
+- timestamp
+- summary of changes
+- validation result
+- rollback note
+
+## Progress rule
+
+Do not move to the next milestone unless the current one is validated.
+
+## Extended reference (repo)
+
+- Phase model and M6 closed loop: `.cursor/harness/milestones.md`
+- Semver, snapshot fields, rollback: `.cursor/harness/version-control.md`
+- Validator gates before completion: `.cursor/harness/validators/*.md`
+- Harness index tying rules, skills, and commands: `.cursor/harness/README.md`
