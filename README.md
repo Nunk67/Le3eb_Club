@@ -1,170 +1,163 @@
-# ePal Gaming Companion（epal-gaming）
+# le3eb_club v0.8.0
 
-游戏陪玩 / 社区类前端演示项目：单页 React 应用 + 同进程 Express 开发服务器，内置模拟充值与钱包 API。产品元数据见根目录 `metadata.json`。
+面向「陪玩社区」全链路的工程化仓库：客户端、管理后台与单进程 API 同仓交付，数据落盘可复现。当前处于 **MVP 演进与运营能力补齐** 阶段。
 
----
+## Table of Contents
 
-## 技术栈
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Validation & CI Gates](#validation--ci-gates)
+- [System Delivery Gates](#system-delivery-gates)
+- [Development Progress](#development-progress)
+- [Data Persistence](#data-persistence)
+- [Known Limitations](#known-limitations)
+- [Roadmap](#roadmap)
 
-| 层级 | 技术 |
-|------|------|
-| 运行时 | Node.js |
-| 前端框架 | React 19（`StrictMode`） |
-| 构建与 HMR | Vite 6（`@vitejs/plugin-react`） |
-| 语言 | TypeScript 5.8（`tsc --noEmit` 校验） |
-| 样式 | Tailwind CSS 4（`@tailwindcss/vite`） |
-| 动效 | Motion（`motion/react`，含 `AnimatePresence`） |
-| 图标 | Lucide React |
-| 服务端 | Express 4 |
-| 开发执行 | `tsx`（直接运行 TypeScript） |
+## Overview
 
-**说明：** 依赖中包含 `@google/genai`，当前业务代码未引用；`vite.config.ts` 会将 `GEMINI_API_KEY` 注入为 `process.env.GEMINI_API_KEY`，便于后续接入 AI 能力。
+- **Frontend**：业务端与后台均为真实鉴权入口（`/`、`/admin`）；`/legacy` 仅保留迁移提示，不再加载演示态数据。
+- **Backend**：`server.ts` 单进程 Express，REST API 与 Vite 中间件同端口（默认 `3000`）。
+- **Build**：Vite 6。
+- **Quality**：本地校验脚本 + `.cursor` 规则 + GitHub Actions 阶段门禁（`M6`）。
 
----
+## Features
 
-## 项目架构
+- **钱包与充值**：创建订单、模拟支付回调、人工审核、拒付与风控挂钩。
+- **业务域**：注册/登录、陪玩申请、订单状态机、评价提交与展示。
+- **管理后台（Workbench）**：中文界面、侧栏导航；陪玩/订单/评价/风控审核；财务对账摘要；审计日志与 CSV 导出；分页、筛选、排序与游标分页。
+- **运营扩展（v0.8.0）**：用户列表与详情（资产调账、代金券、账号状态、资料）；提现与举报审核；数据报表（大盘、充值、订单、提现、陪玩统计、充值风控）；陪玩服务与定价 PATCH；本地存储 **schema v8** 与启动时结构净化，降低异常 JSON 导致的 500。
+- **算法与成本门禁**：陪玩等级（`ALG`）、政策成本（`POL`，不含公会月奖励）。
+- **阶段总控**：`M1..M6` 门禁编排；完整系统交付矩阵（业务域 / 后台域 / 生产域）。
 
-开发模式下由 **`server.ts` 单一入口** 同时承担：
+## Tech Stack
 
-1. **Express**：注册 JSON 中间件与 `/api/*` 路由，内存中维护充值订单、钱包、流水与风控状态。
-2. **Vite（middleware 模式）**：挂载 `vite.middlewares`，由 Vite 处理前端资源与热更新。
+| Layer | Tech |
+|---|---|
+| Runtime | Node.js |
+| Frontend | React 19 + TypeScript 5.8 |
+| Build | Vite 6 |
+| Styling | Tailwind CSS 4 |
+| Animation | Motion |
+| Icons | Lucide React |
+| Backend | Express 4 |
 
-生产构建后，Express 改为托管 `dist` 静态资源并 `SPA fallback`。
+## Project Structure
 
-```mermaid
-flowchart TB
-  subgraph client [浏览器]
-    UI[React App.tsx]
-  end
-  subgraph process [Node 进程 server.ts]
-    EXP[Express]
-    VIT[Vite middleware 开发态]
-    API["/api 内存数据"]
-    EXP --> VIT
-    EXP --> API
-  end
-  UI -->|同域 /api| EXP
-  UI -->|页面与模块| VIT
+```text
+le3eb_club/
+├── server.ts
+├── vite.config.ts
+├── package.json
+├── .github/workflows/ci.yml
+├── data/
+│   └── storage.json          # 本地持久化（含 schemaVersion）
+├── scripts/
+│   ├── validate-companion-level.mjs
+│   ├── validate-policy-cost.mjs
+│   └── validate-gate.mjs
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── BusinessWorkbench.tsx
+│   ├── AdminWorkbench.tsx
+│   ├── LegacySunset.tsx
+│   ├── services/
+│   └── types.ts
+└── .cursor/
+    ├── README.md
+    ├── algorithm/
+    ├── commands/
+    └── harness/
 ```
 
-**前端路由方式：** 无 React Router。`App.tsx` 内用 `useState<View>` + `viewHistory` 栈模拟多「页面」切换（`View` 为字符串联合类型）。
+## Getting Started
 
-**数据分层：**
+### Prerequisites
 
-- **展示与交互数据**：`src/constants.ts` 中的 `GAMES`、`EPALS`、`POSTS` 等（前端静态模拟）。
-- **钱包 / 充值**：由服务端内存维护；进程重启后丢失（非持久化数据库）。
+- Node.js 22+（推荐）
+- npm 或 pnpm
 
----
-
-## 目录与文件职责
-
-```
-epal-gaming/
-├── server.ts              # Express + Vite 启动、全部 REST API 与内存状态
-├── vite.config.ts         # React、Tailwind、路径别名 @、GEMINI 环境变量 define
-├── index.html             # 入口 HTML（挂载 #root）
-├── package.json           # 脚本与依赖
-├── .env.example           # 环境变量示例（Gemini / APP_URL）
-├── metadata.json          # 应用名称与描述（AI Studio 等场景）
-├── find_duplicate_keys.js # 辅助脚本（排查重复 key）
-└── src/
-    ├── main.tsx           # ReactDOM createRoot，挂载 App
-    ├── index.css          # 全局样式（含 Tailwind）
-    ├── App.tsx            # 主界面：视图切换、子组件、钱包/充值请求
-    ├── types.ts           # 领域 TypeScript 类型（与 server 共享部分模型）
-    └── constants.ts       # 游戏、ePal、帖子等 mock 数据
-```
-
----
-
-## `App.tsx` 中的主要 UI 构件（非独立文件）
-
-以下为同一文件内定义的可复用片段，便于检索与拆分重构：
-
-| 名称 | 作用 |
-|------|------|
-| `GlassCard` | 玻璃态卡片容器 |
-| `IconButton` | 大图标分类按钮 |
-| `WaveAnimation` | 语音波形动画 |
-| `EPalCard` / `LegendEPalCard` | 陪玩卡片 |
-| `GameGridItem` | 游戏网格项 |
-| `CoinIcon` | 代币图标 |
-| `WalletView` | 钱包余额、套餐、流水与筛选 |
-| `RechargeView` | 充值套餐与支付方式检测 |
-| `SettingsSubPage` | 设置子页通用布局 |
-| `NavButton` | 底部导航按钮 |
-
-**`View` 类型（节选）：** `HOME`、`COMMUNITY`、`GAME_DETAIL`、`IM`、`WALLET`、`RECHARGE`、`APPLY_PLAYER`、`SETTINGS`、`MY_ORDERS` 等（完整列表见 `App.tsx` 中 `type View = ...`）。
-
-**当前用户：** 钱包相关接口使用硬编码 `userId = 'user_1'`（与 `server.ts` 中预置钱包一致），无登录态与 JWT。
-
----
-
-## HTTP API（`server.ts`）
-
-除 Vite 处理的静态与模块请求外，以下为 Express 注册的接口。请求体均为 JSON（除 GET 查询参数）。
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/api/recharge/packages` | 返回充值套餐列表 |
-| `POST` | `/api/recharge/create` | 创建订单；body：`userId`, `packageId`, `paymentMethod`；含每日充值上限风控 |
-| `POST` | `/api/recharge/verify` | 模拟支付回调；body：`orderId`, `transactionId`, `status`；成功时入账并可能触发人工审核（高频） |
-| `GET` | `/api/wallet/balance` | 查询参数：`userId` |
-| `GET` | `/api/wallet/transactions` | 查询参数：`userId` |
-| `POST` | `/api/admin/recharge/manual` | 人工审核；body：`orderId`, `adminId`, `action`（`APPROVE` \| `REJECT`） |
-| `POST` | `/api/recharge/chargeback` | 拒付/退款模拟；body：`transactionId` |
-
-前端钱包与充值使用 **相对路径** `fetch('/api/...')`，与页面同域同端口，无需单独配置 `VITE_API_BASE_URL`。
-
----
-
-## 环境变量
-
-| 变量 | 用途 |
-|------|------|
-| `GEMINI_API_KEY` | 预留：Vite 注入 `process.env.GEMINI_API_KEY`（当前 UI 未调用 Gemini） |
-| `APP_URL` | 示例中用于托管/OAuth 等说明（`server.ts` 未读取） |
-| `NODE_ENV` | 设为 `production` 时走 `dist` 静态托管 |
-
-复制 `.env.example` 为 `.env` 或 `.env.local` 并按需填写即可。
-
----
-
-## 常用命令
+### Install
 
 ```bash
-# 安装依赖
 npm install
-
-# 开发：启动 Express（端口 3000）+ Vite 中间件
-npm run dev
-
-# 仅类型检查（无测试框架配置）
-npm run lint
-
-# 生产构建
-npm run build
-
-# 预览生产构建（需先 build；预览命令见 package.json）
-npm run preview
 ```
 
-**访问地址：** 开发服务器监听 `0.0.0.0:3000`，本机 `http://localhost:3000`，局域网内其他设备使用本机局域网 IP（如 `http://192.168.x.x:3000`）。若 Windows 防火墙拦截，需放行 Node 或该端口。
+### Run in Development
 
----
+```bash
+npm run dev
+```
 
-## 构建与部署注意
+默认在同一源 **`http://localhost:3000`** 提供页面与 `/api`，请勿单独用纯 Vite 端口访问业务页，否则易出现 API 返回 HTML 的跨源问题。若必须拆端口，请在 `.env` 中设置 `VITE_API_ORIGIN=http://localhost:3000`，并保持 API 进程监听 `3000`。
 
-- `npm run build` 产出 `dist/`；生产模式需 `NODE_ENV=production` 运行 `server.ts`（或等价托管静态目录 + 反向代理 API）。
-- 当前无 Docker / CI 配置；数据库、会话、真实支付均未接入。
+| 入口 | URL |
+|------|-----|
+| 业务端 | `http://localhost:3000/` |
+| 管理后台 | `http://localhost:3000/admin`（默认 `admin@le3eb.club` / `admin123`） |
+| 旧版演示提示 | `http://localhost:3000/legacy` |
 
----
+## Validation & CI Gates
 
-## 已知边界（便于后续迭代）
+### Local Scripts
 
-- 用户体系为 mock（固定 `user_1`），无注册登录与鉴权。
-- 钱包、订单、流水均在内存中，重启清空。
-- 支付为模拟流程（`verify` 接口），非真实网关。
-- 社区、IM、订单等大量流程依赖 `constants.ts` 与组件内 state，与后端未全量打通。
+| Command | Purpose |
+|---|---|
+| `npm run validate:alg` | 陪玩等级算法门禁（`ALG`） |
+| `npm run validate:policy` | 政策成本门禁（`POL`） |
+| `npm run validate:gate -- --stage=M1..M6` | 阶段门禁编排 |
+| `npm run validate:all` | `M6` 全量门禁入口 |
+| `npm run lint` | TypeScript 检查（`tsc --noEmit`） |
+| `npm run build` | 生产构建 |
 
-如需将本说明与内部「La3eb」规范对齐，可在团队文档中引用本 README 的架构与 API 章节并补充版本与发布流程。
+### CI
+
+工作流：`.github/workflows/ci.yml`  
+主检查：`Stage Gate (M6)`，失败即阻断流水线。
+
+## System Delivery Gates
+
+完整交付需业务域、后台域、生产域门禁逐步通过：
+
+- **业务域**：用户、陪玩、订单、评价、钱包与结算链路可闭环。
+- **后台域**：审核、风控、财务、报表与操作留痕可闭环。
+- **生产域**：鉴权、权限、持久化、审计与可运维性可闭环。
+
+矩阵说明：`.cursor/harness/validators/full-system-gate-matrix.md`
+
+## Development Progress
+
+### Completed（节选）
+
+- 陪玩等级算法门禁（`ALG-01..ALG-08`）与政策成本门禁（`POL-01..POL-05`）
+- `.cursor` 索引与算法文档贯通；`validate:gate` 与 `M1..M6` 矩阵；CI 接入阶段门禁
+- 管理后台一期至三期：鉴权、审核、风控、对账、审计、导出、排序与游标分页
+- **v0.8.0**：运营向用户/提现/举报/报表 API 与 UI；存储 schema v8 与启动时数据净化
+
+### In Progress
+
+- 后端仍为单文件聚合，服务边界拆分待推进
+- 完整系统交付矩阵的自动化验证与实现覆盖仍在对齐中
+
+## Data Persistence
+
+- 状态写入 **`data/storage.json`**（用户、陪玩、订单、评价、钱包、充值、会话、风控、审计、提现申请、举报等）。
+- **`schemaVersion`** 在服务启动迁移时向前滚动；**v0.8.0** 对应 **v8**（用户扩展字段、陪玩 `services`、提现与举报集合等）。
+- 重启进程后数据仍从文件恢复，便于本地长链路验证（非内存即失）。
+
+## Known Limitations
+
+- 鉴权与会话模型为本地演示级，非生产级多因素与设备绑定方案
+- 持久化为 **JSON 文件**，非关系型数据库；高并发与审计合规需后续替换或外挂存储
+- 支付与渠道为 **模拟链路**，未对接真实收单机构
+- 部分业务模块仍以「API + 工作台」为主，用户端大盘 UI 仍在演进
+
+## Roadmap
+
+- 后端模块化（订单 / 陪玩 / 评价 / 风控 / 管理域拆分）
+- 统一身份、角色与权限模型（用户 / 陪玩 / 运营）
+- 持久化与迁移策略升级（数据库 + 迁移流水线）
+- 端到端业务校验与数据一致性自动化

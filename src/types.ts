@@ -4,8 +4,9 @@ export interface Message {
   receiverId: string;
   content: string;
   timestamp: number;
-  type: 'text' | 'emoji' | 'gift';
+  type: 'text' | 'emoji' | 'gift' | 'playlink';
   giftId?: number;
+  playlinkId?: string;
 }
 
 export interface ChatSession {
@@ -19,8 +20,11 @@ export interface ChatSession {
 export interface IMOrder {
   id: string;
   epalId: string;
+  customerId?: string;
+  customerName?: string;
+  customerAvatar?: string;
   serviceName: string;
-  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  status: 'PENDING' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
   price: number;
   timestamp: number;
   unit?: string;
@@ -28,6 +32,9 @@ export interface IMOrder {
   quantity?: number;
   endTime?: number;
   reviewed?: boolean;
+  reviewRating?: number;
+  reviewTags?: string[];
+  reviewFeedback?: string;
 }
 
 export type Category = 'GAMES' | 'CHILLING' | 'FAVOURITE';
@@ -146,6 +153,11 @@ export interface EPal {
   reviews?: EPalReview[];
   reviewTags?: { name: string; count: number }[];
   playlinks?: Playlink[];
+  bio?: string;
+  album?: string[];
+  birthday?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface RechargePackage {
@@ -173,11 +185,11 @@ export interface RechargeOrder {
 
 export interface WalletTransaction {
   id: string;
-  userId: string;
-  type: 'RECHARGE' | 'ORDER_PAY' | 'REFUND' | 'ADMIN_ADJUST';
-  amount: number; // Coins
-  balanceAfter: number;
-  referenceId: string; // Order ID or Recharge ID
+  userId?: string;
+  type: 'RECHARGE' | 'ORDER_PAY' | 'REFUND' | 'ADMIN_ADJUST' | 'EXCHANGE' | 'WITHDRAW' | 'INCOME';
+  amount: number; // Coins or Diamonds
+  balanceAfter?: number;
+  referenceId?: string; // Order ID or Recharge ID
   timestamp: number;
   description: string;
 }
@@ -186,4 +198,45 @@ export interface Wallet {
   userId: string;
   balance: number;
   lastUpdated: number;
+}
+
+export interface PlayerRanking {
+  level: number;
+  score: number;
+  justLeveledUpThisWeek: boolean;
+  weeksWithoutOrder: number;
+  weeklyPointsBreakdown: {
+    activity: number;
+    service: number;
+    decay: number;
+    penalty: number;
+  };
+  weeklyStats: {
+    logins: number;
+    posts: number;
+    greetings: number;
+    responseRate: number;
+    acceptanceRate: number;
+    newUsersServed: number;
+    repeatUsersServed: number;
+    rating: number;
+    totalStars: number;
+    giftIncome: number;
+    totalIncome: number;
+    noOrderWeeks: number;
+    consecutiveL1Weeks: number;
+  };
+  status: 'ACTIVE' | 'SUSPENDED';
+  lastUpdateTimestamp: number;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  content: string;
+  time: string;
+  timestamp: number;
+  type: 'ORDER' | 'SOCIAL' | 'SYSTEM';
+  unread: boolean;
+  orderId?: string;
 }

@@ -12,3 +12,8 @@ context-control.md
 *.log
 .env*
 !.env.example
+
+# Local / scratch (do not publish)
+data/storage.json
+keys.txt
+tmp_*.docx

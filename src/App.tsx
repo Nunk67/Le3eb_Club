@@ -69,6 +69,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Category, Game, EPal, EPalServiceVariant, Coupon, Playlink, Post, Message, ChatSession, IMOrder, Wallet as WalletType, RechargePackage, WalletTransaction, RechargeOrder } from './types';
 import { GAMES, EPALS, POSTS } from './constants';
+import { businessApi } from './services/businessApi';
 
 // --- Components ---
 
@@ -398,6 +399,30 @@ const formatChatMessageTime = (timestamp: number, previousTimestamp?: number) =>
 // --- Views ---
 
 type View = 'HOME' | 'COMMUNITY' | 'POST_DETAIL' | 'GAME_DETAIL' | 'PROFILE' | 'ORDER_CONFIRM' | 'LEGEND_LIST' | 'ALL_REVIEWS' | 'CATEGORY_SERVICES' | 'IM' | 'IM_DETAIL' | 'NOTIFICATIONS' | 'CONTACTS' | 'COMMUNITY_SELECTOR' | 'ME' | 'WALLET' | 'RECHARGE' | 'WITHDRAW' | 'APPLY_PLAYER' | 'APPLY_PLAYER_CATEGORY' | 'APPLY_PLAYER_DETAILS' | 'PLAYER_PROFILE_EDIT' | 'SETTINGS' | 'MY_ORDERS' | 'SETTINGS_EDIT_PROFILE' | 'SETTINGS_CHANGE_PASSWORD' | 'SETTINGS_LINKED_ACCOUNTS' | 'SETTINGS_LANGUAGE' | 'SETTINGS_PRIVACY' | 'SETTINGS_TERMS';
+const BUSINESS_TOKEN_KEY = 'business_workbench_token';
+const BUSINESS_UI_AUTH_KEY = 'business_ui_authenticated';
+const PROTECTED_VIEWS = new Set<View>([
+  'ORDER_CONFIRM',
+  'IM',
+  'IM_DETAIL',
+  'NOTIFICATIONS',
+  'CONTACTS',
+  'WALLET',
+  'RECHARGE',
+  'WITHDRAW',
+  'APPLY_PLAYER',
+  'APPLY_PLAYER_CATEGORY',
+  'APPLY_PLAYER_DETAILS',
+  'PLAYER_PROFILE_EDIT',
+  'SETTINGS',
+  'MY_ORDERS',
+  'SETTINGS_EDIT_PROFILE',
+  'SETTINGS_CHANGE_PASSWORD',
+  'SETTINGS_LINKED_ACCOUNTS',
+  'SETTINGS_LANGUAGE',
+  'SETTINGS_PRIVACY',
+  'SETTINGS_TERMS',
+]);
 
 const CoinIcon = ({ className = "w-3 h-3", textClassName = "text-[8px]" }: { className?: string, textClassName?: string }) => (
   <span className={`${className} rounded-full bg-yellow-500 inline-flex items-center justify-center shrink-0`}>
@@ -727,6 +752,17 @@ export default function App() {
   const [selectedLanguage, setSelectedLanguage] = useState('English');
   const [cacheSize, setCacheSize] = useState('12.4 MB');
   const userId = 'user_1'; // Mock current user
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const isAuthenticatedRef = useRef(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [authEmail, setAuthEmail] = useState('demo@le3eb.club');
+  const [authPassword, setAuthPassword] = useState('demo123');
+  const [authUsername, setAuthUsername] = useState('new_user');
+  const [authStatus, setAuthStatus] = useState('');
+  const pendingNavigationRef = useRef<{ view: View; data?: any } | null>(null);
+  const authTokenRef = useRef<string | null>(null);
 
   const fetchWallet = useCallback(async () => {
     try {
@@ -763,6 +799,85 @@ export default function App() {
     fetchTransactions();
     fetchPackages();
   }, [fetchWallet, fetchTransactions, fetchPackages]);
+
+  useEffect(() => {
+    const uiAuth = sessionStorage.getItem(BUSINESS_UI_AUTH_KEY) === '1';
+    setIsAuthenticated(uiAuth);
+    isAuthenticatedRef.current = uiAuth;
+    const token = uiAuth ? localStorage.getItem(BUSINESS_TOKEN_KEY) : null;
+    setAuthToken(token);
+    authTokenRef.current = token;
+  }, []);
+
+  useEffect(() => {
+    authTokenRef.current = authToken;
+  }, [authToken]);
+
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+
+  const openAuthModal = (statusText = 'Please log in to continue') => {
+    setAuthStatus(statusText);
+    setAuthMode('LOGIN');
+    setShowAuthModal(true);
+  };
+
+  const requireAuthAction = (statusText?: string) => {
+    if (isAuthenticatedRef.current) return true;
+    openAuthModal(statusText || 'Please log in to continue');
+    return false;
+  };
+
+  const handleLogout = async () => {
+    const token = authToken;
+    if (token) {
+      try {
+        await businessApi.logout(token);
+      } catch {
+        // Keep local logout regardless of network/session errors.
+      }
+    }
+    localStorage.removeItem(BUSINESS_TOKEN_KEY);
+    sessionStorage.removeItem(BUSINESS_UI_AUTH_KEY);
+    setIsAuthenticated(false);
+    isAuthenticatedRef.current = false;
+    setAuthToken(null);
+    authTokenRef.current = null;
+    pendingNavigationRef.current = null;
+    setCurrentView('HOME');
+    setViewHistory(['HOME']);
+    setShowAuthModal(false);
+    setAuthStatus('Logged out');
+  };
+
+  const handleAuthSubmit = async () => {
+    setAuthStatus(authMode === 'LOGIN' ? 'Logging in...' : 'Registering...');
+    try {
+      if (authMode === 'REGISTER') {
+        await businessApi.register(authUsername, authEmail, authPassword);
+      }
+      const session = await businessApi.login(authEmail, authPassword);
+      localStorage.setItem(BUSINESS_TOKEN_KEY, session.token);
+      sessionStorage.setItem(BUSINESS_UI_AUTH_KEY, '1');
+      setIsAuthenticated(true);
+      isAuthenticatedRef.current = true;
+      setAuthToken(session.token);
+      authTokenRef.current = session.token;
+      setShowAuthModal(false);
+      setAuthStatus('Logged in');
+      const pending = pendingNavigationRef.current;
+      pendingNavigationRef.current = null;
+      if (pending) {
+        navigateTo(pending.view, pending.data);
+      } else {
+        setCurrentView('ME');
+        setViewHistory(['ME']);
+      }
+    } catch (error) {
+      setAuthStatus((error as Error).message);
+    }
+  };
 
   const handleRecharge = async (pkg: RechargePackage, method: 'GOOGLE_PAY' | 'APPLE_PAY') => {
     setIsRecharging(true);
@@ -998,6 +1113,9 @@ export default function App() {
   }, [communityTab, selectedGame, followedEPals]);
 
   const toggleFollow = (id: string) => {
+    if (!requireAuthAction('Follow requires login')) {
+      return;
+    }
     if (followedEPals.has(id)) {
       // Show confirmation modal
       const epal = EPALS.find(e => e.id === id);
@@ -1065,6 +1183,13 @@ export default function App() {
   const legendEPals = useMemo(() => EPALS.filter(e => e.isLegend).slice(0, 10), []);
 
   const navigateTo = (view: View, data?: any) => {
+    const requiresAuth = PROTECTED_VIEWS.has(view) || (view === 'POST_DETAIL' && data?.focusInput);
+    if (requiresAuth && !isAuthenticatedRef.current) {
+      pendingNavigationRef.current = { view, data };
+      openAuthModal('Please log in before using this feature');
+      return;
+    }
+
     // Reset focus state on every navigation unless explicitly requested for POST_DETAIL
     setFocusCommentInput(false);
     setShowImServiceCards(false);
@@ -1761,6 +1886,7 @@ export default function App() {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!requireAuthAction('Sending gifts requires login')) return;
                               setShowGiftPanel(true);
                             }}
                             className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
@@ -1997,7 +2123,13 @@ export default function App() {
                           <MessageSquare className="w-6 h-6" />
                           <span className="text-sm font-bold">{selectedPost.comments}</span>
                         </button>
-                        <button onClick={() => setShowGiftPanel(true)} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                        <button
+                          onClick={() => {
+                            if (!requireAuthAction('Sending gifts requires login')) return;
+                            setShowGiftPanel(true);
+                          }}
+                          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                        >
                           <Gift className="w-6 h-6" />
                           <span className="text-sm font-bold">Gift</span>
                         </button>
@@ -3427,7 +3559,10 @@ export default function App() {
                       />
                     </div>
                     <button 
-                      onClick={() => setShowGiftPanel(true)}
+                      onClick={() => {
+                        if (!requireAuthAction('Sending gifts requires login')) return;
+                        setShowGiftPanel(true);
+                      }}
                       className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"
                     >
                       <Gift className="w-6 h-6" />
@@ -3465,6 +3600,37 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="min-h-screen pb-32 bg-[#0f071a]"
             >
+              {!isAuthenticated ? (
+                <div className="px-6 pt-10 space-y-6">
+                  <GlassCard className="p-8 space-y-5 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center mx-auto">
+                      <User className="w-8 h-8 text-purple-400" />
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-black text-white">Welcome</h2>
+                      <p className="text-sm text-gray-400">You are currently not logged in. Log in to access personal center and account actions.</p>
+                    </div>
+                    <div className="grid gap-3">
+                      <button
+                        onClick={() => openAuthModal('Please log in to continue')}
+                        className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold"
+                      >
+                        Go to Login
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAuthMode('REGISTER');
+                          setAuthStatus('Create an account to continue');
+                          setShowAuthModal(true);
+                        }}
+                        className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-gray-200 font-bold"
+                      >
+                        Register
+                      </button>
+                    </div>
+                  </GlassCard>
+                </div>
+              ) : (
               <div className="px-6 pt-8 space-y-4 relative z-10">
                 {/* User Info Card */}
                 <div className="flex items-center gap-4 px-2">
@@ -3636,6 +3802,7 @@ export default function App() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Status Selection Modal */}
               <AnimatePresence>
@@ -4921,7 +5088,10 @@ export default function App() {
                 </div>
 
                 <div className="pt-8">
-                  <button className="w-full flex items-center justify-center gap-2 p-5 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-400 font-bold hover:bg-red-500/20 active:scale-[0.98] transition-all">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 p-5 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-400 font-bold hover:bg-red-500/20 active:scale-[0.98] transition-all"
+                  >
                     <LogOut className="w-5 h-5" />
                     <span>Logout Account</span>
                   </button>
@@ -6796,6 +6966,76 @@ export default function App() {
           )}
         </AnimatePresence>
 
+        <AnimatePresence>
+          {showAuthModal && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowAuthModal(false)}
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[900]"
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.96 }}
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[901]"
+              >
+                <GlassCard className="p-7 space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-2xl font-black text-white">{authMode === 'LOGIN' ? 'Login' : 'Register'}</h3>
+                    <button onClick={() => setShowAuthModal(false)} className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-purple-300">{authStatus || 'Use your account to continue.'}</p>
+                  <div className="space-y-3">
+                    {authMode === 'REGISTER' && (
+                      <input
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
+                        value={authUsername}
+                        onChange={(e) => setAuthUsername(e.target.value)}
+                        placeholder="username"
+                        required
+                      />
+                    )}
+                    <input
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
+                      value={authEmail}
+                      onChange={(e) => setAuthEmail(e.target.value)}
+                      placeholder="email"
+                      type="email"
+                      required
+                    />
+                    <input
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      placeholder="password"
+                      type="password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAuthSubmit}
+                      className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 font-bold text-white"
+                    >
+                      {authMode === 'LOGIN' ? 'Login' : 'Create account'}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')}
+                    className="w-full py-2 text-xs font-bold text-gray-300 hover:text-white"
+                  >
+                    {authMode === 'LOGIN' ? 'No account? Register now' : 'Already have an account? Log in'}
+                  </button>
+                </GlassCard>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
       {/* Bottom Navigation */}
       {(currentView === 'HOME' || currentView === 'COMMUNITY' || currentView === 'CATEGORY_SERVICES' || currentView === 'IM' || currentView === 'ME') && (
         <nav className="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none">
@@ -6807,6 +7047,7 @@ export default function App() {
           </div>
         </nav>
       )}
+
     </div>
   );
 }
