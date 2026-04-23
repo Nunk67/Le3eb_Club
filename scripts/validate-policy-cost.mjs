@@ -26,12 +26,12 @@ function mustNotInclude(content, token, file, failures) {
 function main() {
   const failures = [];
 
-  const verificationPath = ".cursor/algorithm/policy-cost/verification.md";
-  const rulesPath = ".cursor/algorithm/policy-cost/rules.md";
-  const mappingPath = ".cursor/algorithm/policy-cost/mapping.md";
-  const systemValidatorPath = ".cursor/harness/validators/system-validator.md";
-  const milestonePath = ".cursor/commands/update_milestone.md";
-  const snapshotPath = ".cursor/commands/snapshot_version.md";
+  const verificationPath = "harness/algorithm/policy-cost/verification.md";
+  const rulesPath = "harness/algorithm/policy-cost/rules.md";
+  const mappingPath = "harness/algorithm/policy-cost/mapping.md";
+  const systemValidatorPath = "harness/validators/system-validator.md";
+  const milestonePath = "harness/commands/update_milestone.md";
+  const snapshotPath = "harness/commands/snapshot_version.md";
 
   const verification = read(verificationPath);
   const rules = read(rulesPath);

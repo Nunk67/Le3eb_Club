@@ -51,14 +51,14 @@ function collectImplementationScanPaths() {
 function main() {
   const failures = [];
 
-  const verificationPath = ".cursor/algorithm/companion-level/verification.md";
-  const systemValidatorPath = ".cursor/harness/validators/system-validator.md";
-  const frontendValidatorPath = ".cursor/harness/validators/frontend-validator.md";
-  const securityValidatorPath = ".cursor/harness/validators/security-validator.md";
-  const updateMilestonePath = ".cursor/commands/update_milestone.md";
-  const snapshotPath = ".cursor/commands/snapshot_version.md";
-  const rulesPath = ".cursor/algorithm/companion-level/rules.md";
-  const mappingPath = ".cursor/algorithm/companion-level/mapping.md";
+  const verificationPath = "harness/algorithm/companion-level/verification.md";
+  const systemValidatorPath = "harness/validators/system-validator.md";
+  const frontendValidatorPath = "harness/validators/frontend-validator.md";
+  const securityValidatorPath = "harness/validators/security-validator.md";
+  const updateMilestonePath = "harness/commands/update_milestone.md";
+  const snapshotPath = "harness/commands/snapshot_version.md";
+  const rulesPath = "harness/algorithm/companion-level/rules.md";
+  const mappingPath = "harness/algorithm/companion-level/mapping.md";
 
   const verification = read(verificationPath);
   const systemValidator = read(systemValidatorPath);

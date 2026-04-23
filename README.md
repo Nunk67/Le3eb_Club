@@ -126,7 +126,7 @@ npm run dev
 - **后台域**：审核、风控、财务、报表与操作留痕可闭环。
 - **生产域**：鉴权、权限、持久化、审计与可运维性可闭环。
 
-矩阵说明：`.cursor/harness/validators/full-system-gate-matrix.md`
+矩阵说明：`harness/validators/full-system-gate-matrix.md`（CI 可检出；本地 `.cursor` 下副本仅供编辑器使用）
 
 ## Development Progress
 
