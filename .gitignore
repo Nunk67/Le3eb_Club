@@ -14,8 +14,10 @@ version-control/.state/
 version-control/hooks/
 version-control/scripts/
 
-# GitHub workflow/config (local-only in this repo policy)
-.github/
+# GitHub metadata (keep workflows tracked for Actions)
+.github/*
+!.github/workflows/
+!.github/workflows/*.yml
 
 .DS_Store
 *.log
