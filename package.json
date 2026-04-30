@@ -1,34 +1,33 @@
 {
   "name": "react-example",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.2.0",
   "packageManager": "pnpm@9.15.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "tsx backend/server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
+    "version:auto": "node version-control/scripts/auto-version-bump.mjs",
+    "verify:version": "node version-control/scripts/verify-version.mjs",
+    "push:safe": "node version-control/scripts/safe-push.mjs",
     "validate:alg": "node scripts/validate-companion-level.mjs",
     "validate:policy": "node scripts/validate-policy-cost.mjs",
+    "validate:i18n": "node scripts/validate-i18n.mjs",
     "validate:gate": "node scripts/validate-gate.mjs",
     "validate:full-system": "npm run validate:gate -- --profile=full-system",
     "validate:all": "npm run validate:full-system"
   },
   "dependencies": {
-    "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
-    "@types/d3": "^7.4.3",
     "@vitejs/plugin-react": "^5.0.4",
-    "d3": "^7.9.0",
-    "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^3.8.1",
     "vite": "^6.2.0"
   },
   "devDependencies": {
@@ -37,7 +36,6 @@
     "autoprefixer": "^10.4.21",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "typescript": "~5.8.2"
   }
 }

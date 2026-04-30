@@ -17,21 +17,15 @@ function mustInclude(content, token, file, failures) {
   }
 }
 
-function mustNotInclude(content, token, file, failures) {
-  if (content.toLowerCase().includes(token.toLowerCase())) {
-    failures.push(`${file} contains forbidden token: ${token}`);
-  }
-}
-
 function main() {
   const failures = [];
 
-  const verificationPath = "harness/algorithm/policy-cost/verification.md";
-  const rulesPath = "harness/algorithm/policy-cost/rules.md";
-  const mappingPath = "harness/algorithm/policy-cost/mapping.md";
-  const systemValidatorPath = "harness/validators/system-validator.md";
-  const milestonePath = "harness/commands/update_milestone.md";
-  const snapshotPath = "harness/commands/snapshot_version.md";
+  const verificationPath = ".cursor/commands/validate-policy-cost.md";
+  const rulesPath = ".cursor/rules/algorithm-policy-cost-rules.md";
+  const mappingPath = ".cursor/rules/algorithm-policy-cost-mapping.md";
+  const systemValidatorPath = ".cursor/rules/validator-system.md";
+  const milestonePath = ".cursor/commands/update-milestone.md";
+  const snapshotPath = ".cursor/commands/snapshot-version.md";
 
   const verification = read(verificationPath);
   const rules = read(rulesPath);
@@ -46,7 +40,7 @@ function main() {
   }
   mustInclude(
     verification,
-    "全部通过，才允许进入下一阶段",
+    "must all pass before advancing to the next phase",
     verificationPath,
     failures
   );
@@ -57,8 +51,8 @@ function main() {
   mustInclude(snapshot, "POL-", snapshotPath, failures);
 
   // Must explicitly define exclusion of guild monthly rewards
-  mustInclude(rules, "明确排除", rulesPath, failures);
-  mustInclude(rules, "公会月奖励", rulesPath, failures);
+  mustInclude(rules, "Explicitly excluded", rulesPath, failures);
+  mustInclude(rules, "guild monthly bonus", rulesPath, failures);
   mustInclude(mapping, "guild_month_bonus_rate", mappingPath, failures);
 
   // Core rate constants

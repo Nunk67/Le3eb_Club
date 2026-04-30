@@ -1,4 +1,4 @@
-import { Game, EPal, Post } from './types';
+import { Game, EPal, Post } from '@shared/types';
 
 export const GAMES: Game[] = [
   {

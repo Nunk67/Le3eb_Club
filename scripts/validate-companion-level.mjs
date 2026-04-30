@@ -26,7 +26,7 @@ function assertNotIncludes(content, token, file, failures) {
 /** Collect implementation sources for companion-level exposure checks (no fixed demo paths). */
 function collectImplementationScanPaths() {
   const paths = [];
-  const srcRoot = path.join(root, "src");
+  const roots = ["client", "admin", "shared", "backend"];
   const walk = (dirAbs) => {
     if (!fs.existsSync(dirAbs)) return;
     for (const name of fs.readdirSync(dirAbs)) {
@@ -40,10 +40,8 @@ function collectImplementationScanPaths() {
       }
     }
   };
-  walk(srcRoot);
-  const serverTs = path.join(root, "server.ts");
-  if (fs.existsSync(serverTs)) {
-    paths.push("server.ts");
+  for (const rel of roots) {
+    walk(path.join(root, rel));
   }
   return paths;
 }
@@ -51,14 +49,14 @@ function collectImplementationScanPaths() {
 function main() {
   const failures = [];
 
-  const verificationPath = "harness/algorithm/companion-level/verification.md";
-  const systemValidatorPath = "harness/validators/system-validator.md";
-  const frontendValidatorPath = "harness/validators/frontend-validator.md";
-  const securityValidatorPath = "harness/validators/security-validator.md";
-  const updateMilestonePath = "harness/commands/update_milestone.md";
-  const snapshotPath = "harness/commands/snapshot_version.md";
-  const rulesPath = "harness/algorithm/companion-level/rules.md";
-  const mappingPath = "harness/algorithm/companion-level/mapping.md";
+  const verificationPath = ".cursor/commands/validate-companion-level.md";
+  const systemValidatorPath = ".cursor/rules/validator-system.md";
+  const frontendValidatorPath = ".cursor/rules/validator-frontend.md";
+  const securityValidatorPath = ".cursor/rules/validator-security.md";
+  const updateMilestonePath = ".cursor/commands/update-milestone.md";
+  const snapshotPath = ".cursor/commands/snapshot-version.md";
+  const rulesPath = ".cursor/rules/algorithm-companion-level-rules.md";
+  const mappingPath = ".cursor/rules/algorithm-companion-level-mapping.md";
 
   const verification = read(verificationPath);
   const systemValidator = read(systemValidatorPath);
@@ -75,7 +73,7 @@ function main() {
   }
   assertIncludes(
     verification,
-    "全部通过，方可进入下一阶段",
+    "must all pass before advancing to the next phase",
     verificationPath,
     failures
   );
@@ -96,7 +94,7 @@ function main() {
 
   const implPaths = collectImplementationScanPaths();
   if (implPaths.length === 0) {
-    failures.push("No implementation files found under src/ for companion-level scan");
+    failures.push("No implementation files found under client/admin/shared/backend for companion-level scan");
   }
   for (const rel of implPaths) {
     const content = read(rel);

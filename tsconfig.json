@@ -15,12 +15,20 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["client/*"],
+      "@shared/*": ["shared/*"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "client/**/*.ts",
+    "client/**/*.tsx",
+    "admin/**/*.ts",
+    "admin/**/*.tsx",
+    "shared/**/*.ts",
+    "backend/**/*.ts"
+  ]
 }

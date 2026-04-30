@@ -849,36 +849,34 @@ export default function AdminWorkbench() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
           {activeNav === 'dashboard' && (
-            <>
-              <section className={cardClass}>
-                <h3 className="text-lg font-bold mb-3">核心指标</h3>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-                  {Object.entries(dashboard?.metrics || {}).map(([key, value]) => (
-                    <div key={key} className="bg-black/20 border border-white/10 rounded-2xl p-3">
-                      <p className="text-[10px] text-gray-500 font-bold leading-tight">{toDisplayLabel(key)}</p>
-                      <p className="text-xl font-black text-white mt-1">{formatMetricValue(key, value)}</p>
-                    </div>
+            <section className={cardClass}>
+              <h3 className="text-lg font-bold mb-3">核心指标</h3>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                {Object.entries(dashboard?.metrics || {}).map(([key, value]) => (
+                  <div key={key} className="bg-black/20 border border-white/10 rounded-2xl p-3">
+                    <p className="text-[10px] text-gray-500 font-bold leading-tight">{toDisplayLabel(key)}</p>
+                    <p className="text-xl font-black text-white mt-1">{formatMetricValue(key, value)}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-sm text-gray-300">管理员角色模板</span>
+                <select
+                  className={selectClass}
+                  style={selectDropdownArrowStyle}
+                  value={dashboard?.me?.adminRoleTemplate || 'SUPER_ADMIN'}
+                  onChange={e =>
+                    run('更新管理员模板', () => adminApi.updateAdminRoleTemplate(token, dashboard?.me?.id, e.target.value as any))
+                  }
+                >
+                  {Object.keys(roleTemplates).map(key => (
+                    <option className={optionClass} key={key} value={key}>
+                      {adminRoleTemplateLabelZh(key)}
+                    </option>
                   ))}
-                </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-sm text-gray-300">管理员角色模板</span>
-                  <select
-                    className={selectClass}
-                    style={selectDropdownArrowStyle}
-                    value={dashboard?.me?.adminRoleTemplate || 'SUPER_ADMIN'}
-                    onChange={e =>
-                      run('更新管理员模板', () => adminApi.updateAdminRoleTemplate(token, dashboard?.me?.id, e.target.value as any))
-                    }
-                  >
-                    {Object.keys(roleTemplates).map(key => (
-                      <option className={optionClass} key={key} value={key}>
-                        {adminRoleTemplateLabelZh(key)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </section>
-            </>
+                </select>
+              </div>
+            </section>
           )}
 
           {activeNav === 'users' && (

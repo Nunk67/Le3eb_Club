@@ -2,18 +2,26 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+const FULL_CHECKS = ["validate:policy", "validate:alg", "validate:i18n", "lint", "build"];
+
+/** Progressive gates: M0–M2 lighter; M3+ adds lint; M5+ adds build; M7+ enforces i18n governance; all converge by M10. */
 const STAGE_CHECKS = {
-  M1: ["validate:policy"],
-  M2: ["validate:policy"],
-  M3: ["validate:policy"],
-  M4: ["validate:alg"],
-  M5: ["validate:alg", "validate:policy"],
-  M6: ["validate:alg", "validate:policy", "lint", "build"],
+  M0: ["validate:policy", "validate:alg"],
+  M1: ["validate:policy", "validate:alg"],
+  M2: ["validate:policy", "validate:alg", "lint"],
+  M3: ["validate:policy", "validate:alg", "lint"],
+  M4: ["validate:policy", "validate:alg", "lint"],
+  M5: ["validate:policy", "validate:alg", "lint", "build"],
+  M6: ["validate:policy", "validate:alg", "lint", "build"],
+  M7: FULL_CHECKS,
+  M8: FULL_CHECKS,
+  M9: FULL_CHECKS,
+  M10: FULL_CHECKS,
 };
 
 const PROFILE_TO_STAGE = {
-  default: "M6",
-  "full-system": "M6",
+  default: "M10",
+  "full-system": "M10",
 };
 
 function parseStage(argv) {
@@ -21,7 +29,7 @@ function parseStage(argv) {
   if (!arg) return null;
   const value = arg.split("=")[1]?.toUpperCase();
   if (!value || !(value in STAGE_CHECKS)) {
-    throw new Error(`Invalid stage: ${value}. Use M1..M6`);
+    throw new Error(`Invalid stage: ${value}. Use M0..M10`);
   }
   return value;
 }
@@ -41,11 +49,11 @@ function runStaticChecksForProfile(profile) {
   const root = process.cwd();
   const checks = [
     {
-      file: "harness/validators/full-system-gate-matrix.md",
+      file: ".cursor/rules/validator-full-system-gate-matrix.md",
       mustInclude: ["Business Domain Gate", "Admin Domain Gate", "Production Domain Gate"],
     },
     {
-      file: "harness/validators/system-validator.md",
+      file: ".cursor/rules/validator-system.md",
       mustInclude: ["full-system gate matrix requirements are aligned with current stage"],
     },
   ];
@@ -88,10 +96,24 @@ function runNpmScript(name) {
 
 function main() {
   const argv = process.argv.slice(2);
+  console.log("[gate] running verify:version");
+  const verifyCode = runNpmScript("verify:version");
+  if (verifyCode !== 0) {
+    console.error(`[gate] failed: verify:version (exit ${verifyCode})`);
+    process.exit(verifyCode);
+  }
   const profile = parseProfile(argv);
   const explicitStage = parseStage(argv);
   const stage = explicitStage ?? PROFILE_TO_STAGE[profile];
   const checks = STAGE_CHECKS[stage];
+  if (!explicitStage) {
+    console.warn(
+      `[gate] no --stage provided; resolved by profile=${profile} -> stage=${stage}.`,
+    );
+    console.warn(
+      "[gate] note: gate pass means validation checks passed, not milestone closure.",
+    );
+  }
   runStaticChecksForProfile(profile);
   console.log(`[gate] profile=${profile}`);
   console.log(`[gate] stage=${stage}`);
@@ -106,7 +128,9 @@ function main() {
     }
   }
 
-  console.log(`[gate] passed stage ${stage}`);
+  console.log(
+    `[gate] passed checks for stage ${stage} (validation only; milestone status is managed separately).`,
+  );
 }
 
 main();

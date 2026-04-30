@@ -1,38 +1,43 @@
-# le3eb_club v0.8.0
+# le3eb_club
 
-面向「陪玩社区」全链路的工程化仓库：客户端、管理后台与单进程 API 同仓交付，数据落盘可复现。当前处于 **MVP 演进与运营能力补齐** 阶段。
+当前版本（数字语义化版本号）以 `version-control/version` 为唯一来源。
+
+我们致力于打造**稳定、健康、可持续**的优质陪伴社区：围绕玩家真实的社交与组队需求，沉淀可信赖的匹配、履约与治理体验，让不同风格的玩家都能在社区里找到**契合、专业、有边界感**的伙伴，并形成长期可运营的游戏社区生态。
+
+本仓库是这一目标的**同仓工程载体**：业务端、管理端与 API 一体交付，便于在迭代中保持产品、规则与实现同步演进。当前仍处于 **能力持续补齐、向完整社区系统过渡** 的阶段。
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Validation & CI Gates](#validation--ci-gates)
-- [System Delivery Gates](#system-delivery-gates)
-- [Development Progress](#development-progress)
-- [Data Persistence](#data-persistence)
-- [Known Limitations](#known-limitations)
-- [Roadmap](#roadmap)
+- [愿景与定位](#愿景与定位)
+- [主要能力](#主要能力)
+- [技术栈](#技术栈)
+- [仓库结构](#仓库结构)
+- [快速开始](#快速开始)
+- [校验与 CI](#校验与-ci)
+- [系统交付目标](#系统交付目标)
+- [开发进展](#开发进展)
+- [数据持久化](#数据持久化)
+- [已知限制](#已知限制)
+- [路线图](#路线图)
 
-## Overview
+## 愿景与定位
 
-- **Frontend**：业务端与后台均为真实鉴权入口（`/`、`/admin`）；`/legacy` 仅保留迁移提示，不再加载演示态数据。
-- **Backend**：`server.ts` 单进程 Express，REST API 与 Vite 中间件同端口（默认 `3000`）。
-- **Build**：Vite 6。
-- **Quality**：本地校验脚本 + `.cursor` 规则 + GitHub Actions 阶段门禁（`M6`）。
+- **稳定**：关键链路（身份、订单、资金与审核）可预期、可回放、可排障；默认开发流程配套自动化门禁，减少「口头对齐、线上翻车」。
+- **健康**：重视履约质量、评价与风控工作台，倾向把争议与风险留在可运营、可审计的流程里，而不是依赖单次人情或口头承诺。
+- **可持续**：在单仓内保留清晰的演进路径（从 MVP 到模块化后端、再到更完整的生产形态），使社区规则、成本与等级等运营口径可以随版本迭代而**有文档、有校验、有记录**。
 
-## Features
+技术实现上，默认以 **Node + React + Express** 单机交付本地与演示环境；与运营策略、测算表、线下协作流程相关的内容**不在本 README 展开**，在仓库内仅体现为：**规则可被校验、行为与文档不易漂移**。
 
-- **钱包与充值**：创建订单、模拟支付回调、人工审核、拒付与风控挂钩。
-- **业务域**：注册/登录、陪玩申请、订单状态机、评价提交与展示。
-- **管理后台（Workbench）**：中文界面、侧栏导航；陪玩/订单/评价/风控审核；财务对账摘要；审计日志与 CSV 导出；分页、筛选、排序与游标分页。
-- **运营扩展（v0.8.0）**：用户列表与详情（资产调账、代金券、账号状态、资料）；提现与举报审核；数据报表（大盘、充值、订单、提现、陪玩统计、充值风控）；陪玩服务与定价 PATCH；本地存储 **schema v8** 与启动时结构净化，降低异常 JSON 导致的 500。
-- **算法与成本门禁**：陪玩等级（`ALG`）、政策成本（`POL`，不含公会月奖励）。
-- **阶段总控**：`M1..M6` 门禁编排；完整系统交付矩阵（业务域 / 后台域 / 生产域）。
+## 主要能力
 
-## Tech Stack
+- **玩家侧**：注册与登录、陪玩申请与资料、订单状态与评价等围绕「找伙伴、下订单、完成服务」的闭环能力。
+- **钱包与充值**：订单创建、支付回调模拟、人工审核与拒付、与风控摘要联动，支撑对账与运营决策。
+- **管理后台（Workbench）**：中文工作台；陪玩/订单/评价/风控等审核与查询；财务对账摘要；审计留痕与导出；列表筛选、排序与分页体验。
+- **运营向能力（当前对外 SemVer 以 `version-control/version` 为准）**：用户列表与详情、资产与代金券、账号状态与资料维护；提现与举报审核；数据报表（大盘、充值、订单、提现、陪玩与风控视角）；陪玩服务与定价调整等 PATCH 能力。
+- **本地持久化**：结构化 JSON 存储，启动时按版本迁移并净化异常数据，降低因脏数据导致的不可用。
+- **质量与规则对齐（工程效果）**：关键运营规则（如陪玩等级、政策成本口径）在仓库中有**可追溯的说明**，并通过脚本与 CI 做**一致性校验**，避免实现与文档长期分叉。（具体命令见下文「校验与 CI」。）
+
+## 技术栈
 
 | Layer | Tech |
 |---|---|
@@ -44,36 +49,28 @@
 | Icons | Lucide React |
 | Backend | Express 4 |
 
-## Project Structure
+## 仓库结构
+
+**同仓、单进程**：`npm run dev` 启动 `backend/server.ts`（Express + 开发态 Vite 中间件）；前端以 Vite **`client/`** 为根；**`admin/`** 为运营后台源码（由 `client/main.tsx` 按路径挂载）；**`shared/`** 放跨端类型与 `apiClient`；**`backend/data/`** 为唯一本地数据源。
 
 ```text
 le3eb_club/
-├── server.ts
+├── backend/
+│   ├── server.ts             # API、持久化、Vite 中间件（生产态读根目录 dist/）
+│   └── data/
+│       └── storage.json      # 本地 JSON 存储（含 schemaVersion）
+├── client/                   # 用户端 SPA（Vite root；入口 index.html + main.tsx）
+├── admin/                    # 运营后台（AdminWorkbench + admin API 封装）
+├── shared/                   # 共享类型与 HTTP 小工具（被 client / admin / backend 引用）
+├── version-control/          # 版本治理中心（version/changelog/context-control、hooks、脚本）
 ├── vite.config.ts
 ├── package.json
-├── .github/workflows/ci.yml
-├── data/
-│   └── storage.json          # 本地持久化（含 schemaVersion）
-├── scripts/
-│   ├── validate-companion-level.mjs
-│   ├── validate-policy-cost.mjs
-│   └── validate-gate.mjs
-├── src/
-│   ├── main.tsx
-│   ├── App.tsx
-│   ├── BusinessWorkbench.tsx
-│   ├── AdminWorkbench.tsx
-│   ├── LegacySunset.tsx
-│   ├── services/
-│   └── types.ts
-└── .cursor/
-    ├── README.md
-    ├── algorithm/
-    ├── commands/
-    └── harness/
+├── README.md                 # 本文件：产品说明与上手指南
 ```
 
-## Getting Started
+跨目录引用在构建侧通过 **`@shared/*`**（见 `vite.config.ts` / `tsconfig.json`），避免深层相对路径。除本 README 外，**《开发手册》**与源码同仓维护，汇总规则口径、算法说明、阶段门禁与协作约定；日常以本页作产品入口，以手册作研发与验收入口，不再单独维护 `docs/` 目录。
+
+## 快速开始
 
 ### Prerequisites
 
@@ -92,7 +89,7 @@ npm install
 npm run dev
 ```
 
-默认在同一源 **`http://localhost:3000`** 提供页面与 `/api`，请勿单独用纯 Vite 端口访问业务页，否则易出现 API 返回 HTML 的跨源问题。若必须拆端口，请在 `.env` 中设置 `VITE_API_ORIGIN=http://localhost:3000`，并保持 API 进程监听 `3000`。
+默认在同一源 **`http://localhost:3000`** 提供页面与 `/api`。请勿单独用纯 Vite 端口访问业务页，否则易出现 API 返回 HTML 的跨源问题。若必须拆端口，请在 `.env` 中设置 `VITE_API_ORIGIN=http://localhost:3000`，并保持 API 进程监听 `3000`。
 
 | 入口 | URL |
 |------|-----|
@@ -100,64 +97,71 @@ npm run dev
 | 管理后台 | `http://localhost:3000/admin`（默认 `admin@le3eb.club` / `admin123`） |
 | 旧版演示提示 | `http://localhost:3000/legacy` |
 
-## Validation & CI Gates
+## 校验与 CI
 
-### Local Scripts
+**效果**：在合并与发布前自动跑类型检查、生产构建，并对关键规则文档做门禁校验。阶段划分与验收条目以《开发手册》为准，本 README 只保留常用命令。
+
+常用本地命令：
 
 | Command | Purpose |
 |---|---|
-| `npm run validate:alg` | 陪玩等级算法门禁（`ALG`） |
-| `npm run validate:policy` | 政策成本门禁（`POL`） |
-| `npm run validate:gate -- --stage=M1..M6` | 阶段门禁编排 |
-| `npm run validate:all` | `M6` 全量门禁入口 |
+| `npm run validate:all` | 推荐的一键门禁（与 CI 默认 profile 对齐） |
+| `npm run validate:gate -- --stage=M0..M10` | 按阶段拆分跑门禁（推荐显式传 `--stage`，避免语义误读） |
+| `npm run validate:i18n` | 多语言架构门禁（校验 milestones 中 i18n 分阶段目标与关键约束） |
+| `npm run version:auto` | 按里程碑基线 + PATCH 规则自动同步 `version-control/version` 与 `package.json` |
+| `npm run verify:version` | 校验 `version-control/version` 与 `package.json` 一致（`validate:gate` 入口已自动执行） |
+| `npm run push:safe` | 安全推送：阻止包含 `.cursor/**` 与 `version-control/context-control.md` 的提交被推送 |
 | `npm run lint` | TypeScript 检查（`tsc --noEmit`） |
 | `npm run build` | 生产构建 |
 
-### CI
+CI 工作流：`.github/workflows/ci.yml`（主步骤为 **Stage Gate (Full System)**，失败即阻断）。
 
-工作流：`.github/workflows/ci.yml`  
-主检查：`Stage Gate (M6)`，失败即阻断流水线。
+## 版本与记录流程
 
-## System Delivery Gates
+- 数字语义化版本号唯一来源：`version-control/version`（`MAJOR.MINOR.PATCH`）。
+- `package.json` 的 `version` 必须与 `version-control/version` 一致（可用 `npm run verify:version` 校验）。
+- `version-control/changelog.md` 仅记录会推送到 GitHub 的改动。
+- 对不会推送到 GitHub 的本地文件改动（如 `.cursor/**`、`version-control/context-control.md`）无需写入 changelog。
+- `version-control/context-control.md` 采用本机时间戳：`### [YYYY-MM-DD HH:MM:SS LOCAL]`。
 
-完整交付需业务域、后台域、生产域门禁逐步通过：
+## 系统交付目标
 
-- **业务域**：用户、陪玩、订单、评价、钱包与结算链路可闭环。
-- **后台域**：审核、风控、财务、报表与操作留痕可闭环。
-- **生产域**：鉴权、权限、持久化、审计与可运维性可闭环。
+从「能跑的 MVP」走向「可长期运营的社区系统」，交付上按三域目标对齐（**此处只写效果，不展开验收细则**）：
 
-矩阵说明：`harness/validators/full-system-gate-matrix.md`（CI 可检出；本地 `.cursor` 下副本仅供编辑器使用）
+- **业务域**：用户、陪玩、订单、评价、钱包与结算等主链路可闭环、状态可解释。
+- **后台域**：审核、风控、财务与报表等运营动作可执行、可留痕、可复盘。
+- **生产域**：鉴权与权限边界清晰，关键写操作可审计、可回滚、可观测——在到达该形态前，本仓库仍以**渐进增强**为主。
 
-## Development Progress
+## 开发进展
 
 ### Completed（节选）
 
-- 陪玩等级算法门禁（`ALG-01..ALG-08`）与政策成本门禁（`POL-01..POL-05`）
-- `.cursor` 索引与算法文档贯通；`validate:gate` 与 `M1..M6` 矩阵；CI 接入阶段门禁
-- 管理后台一期至三期：鉴权、审核、风控、对账、审计、导出、排序与游标分页
-- **v0.8.0**：运营向用户/提现/举报/报表 API 与 UI；存储 schema v8 与启动时数据净化
+- 业务端与管理端真实鉴权入口；旧演示路径收敛为迁移提示。
+- 管理后台多期能力：审核、风控、对账、审计、导出、排序与游标分页等。
+- **运营向能力**：用户/提现/举报/报表等运营向 API 与 UI；本地存储 schema 升级与启动时数据净化。
+- 工程侧：规则文档与自动化门禁贯通，CI 接入阶段门禁；配套《开发手册》便于对齐口径。
 
 ### In Progress
 
-- 后端仍为单文件聚合，服务边界拆分待推进
-- 完整系统交付矩阵的自动化验证与实现覆盖仍在对齐中
+- 后端从单文件形态向清晰服务边界演进。
+- 完整社区系统在「业务 / 后台 / 生产」三域上的自动化覆盖与实现深度仍在对齐。
 
-## Data Persistence
+## 数据持久化
 
-- 状态写入 **`data/storage.json`**（用户、陪玩、订单、评价、钱包、充值、会话、风控、审计、提现申请、举报等）。
-- **`schemaVersion`** 在服务启动迁移时向前滚动；**v0.8.0** 对应 **v8**（用户扩展字段、陪玩 `services`、提现与举报集合等）。
-- 重启进程后数据仍从文件恢复，便于本地长链路验证（非内存即失）。
+- 状态写入 **`backend/data/storage.json`**（用户、陪玩、订单、评价、钱包、会话、风控、审计、提现与举报等聚合存储）。
+- **`schemaVersion`** 在启动时向前迁移；产品 SemVer 以 `version-control/version` 与 `package.json` 对齐为准，与里程碑映射遵循 `.cursor/rules/version-control.md`。
+- 重启进程后数据从文件恢复，便于本地长链路验证（非纯内存即失）。
 
-## Known Limitations
+## 已知限制
 
-- 鉴权与会话模型为本地演示级，非生产级多因素与设备绑定方案
-- 持久化为 **JSON 文件**，非关系型数据库；高并发与审计合规需后续替换或外挂存储
-- 支付与渠道为 **模拟链路**，未对接真实收单机构
-- 部分业务模块仍以「API + 工作台」为主，用户端大盘 UI 仍在演进
+- 鉴权与会话为**开发与演示向**实现，不等同于生产级多因素与设备绑定方案。
+- 持久化为 **JSON 文件**，非关系型数据库；规模与合规需求上升时需替换或外挂存储。
+- 支付与渠道为 **模拟链路**，未对接真实收单机构。
+- 部分能力仍以「API + 工作台」为主，玩家端大盘与发现体验仍在迭代。
 
-## Roadmap
+## 路线图
 
-- 后端模块化（订单 / 陪玩 / 评价 / 风控 / 管理域拆分）
-- 统一身份、角色与权限模型（用户 / 陪玩 / 运营）
-- 持久化与迁移策略升级（数据库 + 迁移流水线）
-- 端到端业务校验与数据一致性自动化
+- 后端模块化（订单 / 陪玩 / 评价 / 风控 / 管理域拆分）。
+- 统一身份、角色与权限模型（用户 / 陪玩 / 运营）。
+- 持久化与迁移策略升级（数据库 + 迁移流水线）。
+- 端到端业务校验与数据一致性自动化增强。

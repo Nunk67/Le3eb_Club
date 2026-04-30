@@ -67,7 +67,7 @@ import {
   Link,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Category, Game, EPal, EPalServiceVariant, Coupon, Playlink, Post, Message, ChatSession, IMOrder, Wallet as WalletType, RechargePackage, WalletTransaction, RechargeOrder } from './types';
+import { Category, Game, EPal, EPalServiceVariant, Coupon, Playlink, Post, Message, ChatSession, IMOrder, Wallet as WalletType, RechargePackage, WalletTransaction, RechargeOrder } from '@shared/types';
 import { GAMES, EPALS, POSTS } from './constants';
 import { businessApi } from './services/businessApi';
 

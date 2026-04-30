@@ -9,7 +9,7 @@ import {
   RechargeOrder, 
   Wallet, 
   WalletTransaction 
-} from './src/types.js';
+} from '../shared/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

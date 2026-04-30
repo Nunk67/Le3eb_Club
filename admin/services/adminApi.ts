@@ -1,4 +1,4 @@
-import { apiUrl, readJsonResponse } from '../apiClient';
+import { apiUrl, readJsonResponse } from '@shared/apiClient';
 
 type AuthUser = {
   id: string;
@@ -61,7 +61,7 @@ export const adminApi = {
     return request('/api/admin/dashboard', 'GET', token);
   },
   logout(token: string) {
-    return request<{ ok: boolean }>('/api/auth/logout', 'POST', token, {});
+    return request<{ ok: boolean }>('/api/auth/logout', 'POST', token);
   },
   roleTemplates(token: string) {
     return request<Record<string, string[]>>('/api/admin/role-templates', 'GET', token);
@@ -91,7 +91,7 @@ export const adminApi = {
     return request<PagedResult<any>>(`/api/admin/risk-events${toQuery(params)}`, 'GET', token);
   },
   resolveRiskEvent(token: string, eventId: string) {
-    return request(`/api/admin/risk-events/${eventId}/resolve`, 'POST', token, {});
+    return request(`/api/admin/risk-events/${eventId}/resolve`, 'POST', token);
   },
   reconcile(token: string, start: number, end: number) {
     return request(`/api/admin/finance/reconciliation?start=${start}&end=${end}`, 'GET', token);

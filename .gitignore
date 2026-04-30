@@ -6,7 +6,16 @@ coverage/
 # Cursor / local harness (not app source; keep on your machine only)
 .cursor/
 .cursorignore
+
+# Context log (local / optional share; filename matches root or version-control/)
 context-control.md
+version-control/context-control.md
+version-control/.state/
+version-control/hooks/
+version-control/scripts/
+
+# GitHub workflow/config (local-only in this repo policy)
+.github/
 
 .DS_Store
 *.log
@@ -15,5 +24,6 @@ context-control.md
 
 # Local / scratch (do not publish)
 data/storage.json
+backend/data/storage.json
 keys.txt
 tmp_*.docx

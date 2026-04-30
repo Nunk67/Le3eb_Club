@@ -38,7 +38,7 @@ export interface BusinessReview {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
-import { apiUrl, readJsonResponse } from '../apiClient';
+import { apiUrl, readJsonResponse } from '@shared/apiClient';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH';
 
@@ -65,7 +65,7 @@ export const businessApi = {
     return request<AuthSession['user']>('/api/auth/session', 'GET', undefined, token);
   },
   logout(token: string) {
-    return request<{ ok: boolean }>('/api/auth/logout', 'POST', {}, token);
+    return request<{ ok: boolean }>('/api/auth/logout', 'POST', undefined, token);
   },
   applyCompanion(token: string, gameName: string, intro: string, hourlyRate: number) {
     return request<CompanionProfile>('/api/companions/apply', 'POST', { gameName, intro, hourlyRate }, token);
@@ -87,8 +87,5 @@ export const businessApi = {
   },
   listReviews(token: string) {
     return request<BusinessReview[]>('/api/reviews', 'GET', undefined, token);
-  },
-  getBusinessDashboard(token: string) {
-    return request<unknown>('/api/dashboard/business', 'GET', undefined, token);
   }
 };
