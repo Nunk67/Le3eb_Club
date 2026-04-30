@@ -4,6 +4,12 @@ Notable product-facing and governance changes. **Canonical numeric SemVer** is `
 
 ## [Unreleased]
 
+### [2026-05-01 02:06:00 LOCAL] [0.6.0] Closed M5 companion-level settlement milestone with gate-backed evidence.
+
+- Promoted product SemVer to `0.6.0` in `version-control/version` and `package.json` to match M5 mapping.
+- Upgraded M5 from audit stub to closure record in `version-control/governance/commands/milestones.md` and marked M5 `Closed` in `version-control/governance/commands/implementation-status.md`.
+- Re-validated closure evidence with `npm run verify:version` and `npm run validate:gate -- --stage=M5`.
+
 ### [2026-05-01 14:30:00 LOCAL] [0.5.1] README SemVer banner and changelog link consistency.
 
 - Root `README.md`: title block uses numeric **0.5.1**; clarify storage `schemaVersion` vs product SemVer; milestone/version mapping points at `version-control/governance/`.

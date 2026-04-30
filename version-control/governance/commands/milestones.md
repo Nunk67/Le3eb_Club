@@ -226,20 +226,20 @@ Required per-phase closure steps:
   - Decision: `Closed`
   - Risks/notes: M4 closure is limited to transaction and wallet baseline in current monolith scope; deeper finance governance remains tracked in M8+ admin depth.
 
-### M5 companion level and settlement audit stub
+### M5 companion level and settlement closure record
 
 - **Milestone**: `M5` (`0.6.0`)
-- **Current status**: `Partial`
+- **Current status**: `Closed`
 - **Primary evidence**:
   - `scripts/validate-companion-level.mjs`
   - `version-control/governance/commands/validate-companion-level.md`
   - `version-control/governance/rules/algorithm-rules.mdc` (companion-level sections; replaces legacy split companion-level rule files)
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M5`
-  - Latest result: `TBD`
+  - Latest result: `passed`
 - **Closure decision**:
-  - Decision: `Not closed`
-  - Risks/notes: pending runtime linkage summary and gate snapshot.
+  - Decision: `Closed`
+  - Risks/notes: M5 closure confirms governance and gate integrity for companion-level settlement; ranking/exposure expansion remains in M6 scope.
 
 ### M6 exposure and ranking audit stub
 
