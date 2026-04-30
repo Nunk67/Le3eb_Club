@@ -69,7 +69,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Category, Game, EPal, EPalServiceVariant, Coupon, Playlink, Post, Message, ChatSession, IMOrder, Wallet as WalletType, RechargePackage, WalletTransaction, RechargeOrder } from '@shared/types';
 import { GAMES, EPALS, POSTS } from './constants';
-import { businessApi } from './services/businessApi';
+import { businessApi, type CompanionRanking } from './services/businessApi';
 
 // --- Components ---
 
@@ -761,6 +761,12 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState('demo123');
   const [authUsername, setAuthUsername] = useState('new_user');
   const [authStatus, setAuthStatus] = useState('');
+  const [companionRankings, setCompanionRankings] = useState<CompanionRanking[]>([]);
+  const [rankingsLoading, setRankingsLoading] = useState(false);
+  const [rankingsError, setRankingsError] = useState('');
+  const [rankingSortBy, setRankingSortBy] = useState<'SCORE' | 'RATING' | 'COMPLETED'>('SCORE');
+  const [showRankingModal, setShowRankingModal] = useState(false);
+  const [expandedRankingId, setExpandedRankingId] = useState<string | null>(null);
   const pendingNavigationRef = useRef<{ view: View; data?: any } | null>(null);
   const authTokenRef = useRef<string | null>(null);
 
@@ -794,6 +800,19 @@ export default function App() {
     }
   }, []);
 
+  const fetchCompanionRankings = useCallback(async (token: string) => {
+    setRankingsLoading(true);
+    setRankingsError('');
+    try {
+      const list = await businessApi.listCompanionRankings(token, 10);
+      setCompanionRankings(list);
+    } catch (error) {
+      setRankingsError((error as Error).message || 'Failed to load rankings');
+    } finally {
+      setRankingsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchWallet();
     fetchTransactions();
@@ -816,6 +835,27 @@ export default function App() {
   useEffect(() => {
     isAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !authToken) {
+      setCompanionRankings([]);
+      setRankingsLoading(false);
+      setRankingsError('');
+      return;
+    }
+    fetchCompanionRankings(authToken);
+  }, [isAuthenticated, authToken, fetchCompanionRankings]);
+
+  const sortedRankings = useMemo(() => {
+    const cloned = [...companionRankings];
+    if (rankingSortBy === 'RATING') {
+      return cloned.sort((a, b) => b.avgRating - a.avgRating || b.rankingScore - a.rankingScore);
+    }
+    if (rankingSortBy === 'COMPLETED') {
+      return cloned.sort((a, b) => b.completedOrderCount - a.completedOrderCount || b.rankingScore - a.rankingScore);
+    }
+    return cloned.sort((a, b) => b.rankingScore - a.rankingScore || b.avgRating - a.avgRating);
+  }, [companionRankings, rankingSortBy]);
 
   const openAuthModal = (statusText = 'Please log in to continue') => {
     setAuthStatus(statusText);
@@ -3698,6 +3738,64 @@ export default function App() {
                     </div>
                     <ChevronRight className="w-6 h-6 text-gray-500 group-hover:translate-x-1 transition-transform" />
                   </div>
+                </GlassCard>
+
+                {/* Companion Ranking */}
+                <GlassCard className="p-5 bg-gradient-to-br from-blue-600/10 to-purple-600/10 border-blue-500/20">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-yellow-400" />
+                      <p className="text-sm font-black text-white uppercase tracking-widest">Companion Rankings</p>
+                    </div>
+                    {rankingsLoading && <span className="text-[10px] text-gray-400">Refreshing...</span>}
+                  </div>
+                  <div className="flex items-center gap-2 mb-4">
+                    {[
+                      { id: 'SCORE', label: 'By Score' },
+                      { id: 'RATING', label: 'By Rating' },
+                      { id: 'COMPLETED', label: 'By Completed' }
+                    ].map(sort => (
+                      <button
+                        key={sort.id}
+                        onClick={() => setRankingSortBy(sort.id as 'SCORE' | 'RATING' | 'COMPLETED')}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-wide border transition-all ${
+                          rankingSortBy === sort.id
+                            ? 'bg-purple-600/30 border-purple-400/40 text-purple-200'
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                        }`}
+                      >
+                        {sort.label}
+                      </button>
+                    ))}
+                  </div>
+                  {rankingsError ? (
+                    <p className="text-xs text-red-300">{rankingsError}</p>
+                  ) : sortedRankings.length === 0 ? (
+                    <p className="text-xs text-gray-400">No ranking data available yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {sortedRankings.slice(0, 5).map(item => (
+                        <div key={item.companionId} className="flex items-center justify-between rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-white truncate">#{item.rank} {item.gameName}</p>
+                            <p className="text-[10px] text-gray-400">
+                              Score {item.rankingScore.toFixed(2)} · {item.poolTag} · {item.completedOrderCount} completed
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-bold text-purple-300">★ {item.avgRating.toFixed(2)}</p>
+                            <p className="text-[10px] text-gray-500">{Math.round(item.completionRate * 100)}% completion</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowRankingModal(true)}
+                    className="mt-4 w-full rounded-xl bg-white/5 border border-white/10 py-2 text-xs font-bold text-gray-200 hover:bg-white/10 transition-all"
+                  >
+                    View Top 10
+                  </button>
                 </GlassCard>
 
                 {/* Main Menu */}
@@ -7033,6 +7131,63 @@ export default function App() {
                 </GlassCard>
               </motion.div>
             </>
+          )}
+
+          {showRankingModal && (
+            <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-sm px-4 py-10" onClick={() => setShowRankingModal(false)}>
+              <div className="max-w-md mx-auto bg-[#160b25] border border-white/10 rounded-3xl p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-yellow-400" />
+                    <h3 className="text-sm font-black text-white uppercase tracking-widest">Top 10 Rankings</h3>
+                  </div>
+                  <button onClick={() => setShowRankingModal(false)} className="p-2 rounded-lg hover:bg-white/10 text-gray-300">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                  {sortedRankings.slice(0, 10).map(item => (
+                    <div key={`modal_${item.companionId}`} className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-white">#{item.rank} {item.gameName}</p>
+                        <p className="text-xs font-bold text-purple-300">Score {item.rankingScore.toFixed(2)}</p>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {item.poolTag} · ★ {item.avgRating.toFixed(2)} · {item.completedOrderCount} completed · {Math.round(item.completionRate * 100)}% completion
+                      </p>
+                      <button
+                        onClick={() => setExpandedRankingId(prev => prev === item.companionId ? null : item.companionId)}
+                        className="mt-2 text-[10px] font-bold text-blue-300 hover:text-blue-200 transition-colors"
+                      >
+                        {expandedRankingId === item.companionId ? 'Hide score breakdown' : 'Show score breakdown'}
+                      </button>
+                      {expandedRankingId === item.companionId && (
+                        <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px]">
+                          <div className="rounded-lg bg-blue-500/10 border border-blue-400/20 px-2 py-1 text-blue-200 col-span-2">
+                            Formula: <span className="font-bold">score = quality + volume + fulfillment + revenue - riskPenalty</span>
+                          </div>
+                          <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-gray-300">
+                            Quality: <span className="text-white font-bold">{item.scoreBreakdown.quality.toFixed(2)}</span>
+                          </div>
+                          <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-gray-300">
+                            Volume: <span className="text-white font-bold">{item.scoreBreakdown.volume.toFixed(2)}</span>
+                          </div>
+                          <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-gray-300">
+                            Fulfillment: <span className="text-white font-bold">{item.scoreBreakdown.fulfillment.toFixed(2)}</span>
+                          </div>
+                          <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-gray-300">
+                            Revenue: <span className="text-white font-bold">{item.scoreBreakdown.revenue.toFixed(2)}</span>
+                          </div>
+                          <div className="rounded-lg bg-red-500/10 border border-red-400/20 px-2 py-1 text-red-200 col-span-2">
+                            Risk Penalty: <span className="font-bold">{item.scoreBreakdown.riskPenalty.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
         </AnimatePresence>
 

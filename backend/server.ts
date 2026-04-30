@@ -898,6 +898,75 @@ async function startServer() {
     res.json(list);
   });
 
+  app.get('/api/companions/rankings', (req, res) => {
+    const limitRaw = Number(req.query.limit || 20);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, Math.floor(limitRaw))) : 20;
+
+    const rankingRows = companions
+      .filter(c => c.status === 'APPROVED')
+      .map(companion => {
+        const companionOrders = orders.filter(o => o.companionId === companion.id);
+        const completedOrders = companionOrders.filter(o => o.status === 'COMPLETED');
+        const disputedOrders = companionOrders.filter(o => o.status === 'DISPUTED');
+        const companionReviews = reviews.filter(r => r.companionId === companion.id && r.status === 'APPROVED');
+
+        const completedOrderCount = completedOrders.length;
+        const avgRating = companionReviews.length > 0
+          ? companionReviews.reduce((sum, review) => sum + review.rating, 0) / companionReviews.length
+          : 0;
+        const totalRevenue = completedOrders.reduce((sum, order) => sum + order.totalPrice, 0);
+        const totalOrderCount = companionOrders.length;
+        const completionRate = totalOrderCount > 0 ? completedOrderCount / totalOrderCount : 0;
+
+        const scoreBreakdown = {
+          quality: Number((avgRating * 0.55).toFixed(4)),
+          volume: Number((completedOrderCount * 0.25).toFixed(4)),
+          fulfillment: Number((completionRate * 100 * 0.15).toFixed(4)),
+          revenue: Number((totalRevenue * 0.0005).toFixed(4)),
+          riskPenalty: Number((disputedOrders.length * 0.5).toFixed(4))
+        };
+        const poolTag = completedOrderCount >= 20
+          ? 'HIGH_PERFORMING'
+          : completedOrderCount >= 5
+            ? 'STABLE'
+            : 'NEW';
+
+        // Composite score keeps ranking deterministic across low/high volume companions.
+        const rankingScore = Number(
+          (
+            scoreBreakdown.quality +
+            scoreBreakdown.volume +
+            scoreBreakdown.fulfillment +
+            scoreBreakdown.revenue -
+            scoreBreakdown.riskPenalty
+          ).toFixed(4)
+        );
+
+        return {
+          companionId: companion.id,
+          gameName: companion.gameName,
+          hourlyRate: companion.hourlyRate,
+          availability: companion.availability,
+          avgRating: Number(avgRating.toFixed(2)),
+          completedOrderCount,
+          reviewCount: companionReviews.length,
+          completionRate: Number(completionRate.toFixed(4)),
+          totalRevenue,
+          rankingScore,
+          poolTag,
+          scoreBreakdown
+        };
+      })
+      .sort((a, b) => b.rankingScore - a.rankingScore || b.completedOrderCount - a.completedOrderCount || b.avgRating - a.avgRating);
+
+    const ranked = rankingRows.slice(0, limit).map((row, index) => ({
+      rank: index + 1,
+      ...row
+    }));
+
+    res.json(ranked);
+  });
+
   app.post('/api/orders', authMiddleware, (req, res) => {
     const userId = (req as any).authUserId as string;
     const buyer = getUserById(userId);

@@ -241,18 +241,20 @@ Required per-phase closure steps:
   - Decision: `Closed`
   - Risks/notes: M5 closure confirms governance and gate integrity for companion-level settlement; ranking/exposure expansion remains in M6 scope.
 
-### M6 exposure and ranking audit stub
+### M6 exposure and ranking closure record
 
 - **Milestone**: `M6` (`0.7.0`)
-- **Current status**: `Not started / early`
+- **Current status**: `Closed`
 - **Primary evidence**:
-  - `TBD` (to be filled when exposure/ranking implementation lands)
+  - `backend/server.ts` (`/api/companions/rankings` composite ranking endpoint with `scoreBreakdown` + `poolTag`)
+  - `client/services/businessApi.ts` (`listCompanionRankings` API method + ranking contract)
+  - `client/App.tsx` (ME page ranking card, sort toggles, Top10 modal, score formula + breakdown display)
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M6`
-  - Latest result: `TBD`
+  - Latest result: `passed`
 - **Closure decision**:
-  - Decision: `Not closed`
-  - Risks/notes: phase implementation and evidence are not complete yet.
+  - Decision: `Closed`
+  - Risks/notes: M6 closure covers business-facing ranking delivery and explainable scoring; deeper admin inspection and cross-domain ranking governance continue in M8+.
 
 ### M7 client integration audit stub
 

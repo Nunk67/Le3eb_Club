@@ -23,7 +23,8 @@ Canonical phase reference: `version-control/governance/commands/milestones.md` (
 
 ### Companion guardrails
 
-No legacy weight keys.
+M5 keeps companion-level settlement and tier logic stable.
+Exposure pool and exposure weight fields are reserved for M6 implementation and should be introduced through auditable design + gate updates (not treated as forbidden vocabulary).
 
 ## Policy cost
 

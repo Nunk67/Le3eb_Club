@@ -18,6 +18,28 @@ export interface CompanionProfile {
   availability: 'ONLINE' | 'OFFLINE' | 'BUSY';
 }
 
+export interface CompanionRanking {
+  rank: number;
+  companionId: string;
+  gameName: string;
+  hourlyRate: number;
+  availability: 'ONLINE' | 'OFFLINE' | 'BUSY';
+  avgRating: number;
+  completedOrderCount: number;
+  reviewCount: number;
+  completionRate: number;
+  totalRevenue: number;
+  rankingScore: number;
+  poolTag: 'NEW' | 'STABLE' | 'HIGH_PERFORMING';
+  scoreBreakdown: {
+    quality: number;
+    volume: number;
+    fulfillment: number;
+    revenue: number;
+    riskPenalty: number;
+  };
+}
+
 export interface BusinessOrder {
   id: string;
   userId: string;
@@ -72,6 +94,10 @@ export const businessApi = {
   },
   listCompanions(token: string) {
     return request<CompanionProfile[]>('/api/companions?available=true', 'GET', undefined, token);
+  },
+  listCompanionRankings(token: string, limit = 20) {
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+    return request<CompanionRanking[]>(`/api/companions/rankings?limit=${safeLimit}`, 'GET', undefined, token);
   },
   createOrder(token: string, companionId: string, serviceName: string, quantity: number) {
     return request<BusinessOrder>('/api/orders', 'POST', { companionId, serviceName, quantity }, token);

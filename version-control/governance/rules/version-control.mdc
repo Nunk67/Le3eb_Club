@@ -34,6 +34,7 @@ Canonical SemVer policy for this repo:
 
 - `version-control/changelog.md`:
   - Follow the latest entry format exactly (same heading shape and bullet style as the previous write).
+  - After each version iteration, append the newly added changes under `Unreleased` using the same format before any push/release handoff.
   - Under `Unreleased`, each write uses one title line:
     - `### [YYYY-MM-DD HH:MM:SS LOCAL] [x.y.z] <one-sentence summary>`
   - The `x.y.z` value must equal `version-control/version` at write time.

@@ -1,8 +1,26 @@
 # Changelog
 
-Notable product-facing and governance changes. **Canonical numeric SemVer** is `version-control/version`; keep `package.json` `version` in sync. Milestone ↔ version mapping and bump discipline: [`version-control/governance/rules/version-control.mdc`](governance/rules/version-control.mdc). Changelog entries should describe push-bound changes only.
+Notable product-facing and governance changes. **Canonical numeric SemVer** is `version-control/version`; keep `package.json` `version` in sync. Milestone -> version mapping and bump discipline: [`version-control/governance/rules/version-control.mdc`](governance/rules/version-control.mdc). Changelog entries should describe push-bound changes only. After each version iteration, append newly added changes under `Unreleased` using the existing entry format.
 
 ## [Unreleased]
+
+### [2026-05-01 03:20:00 LOCAL] [0.7.0] Close M6 exposure/ranking with explainable API and business-facing ranking UI.
+
+- Promoted product SemVer to `0.7.0` in `version-control/version` and `package.json` to match the M6 milestone mapping.
+- Completed M6 ranking delivery across backend + client: explainable ranking API (`poolTag`, `scoreBreakdown`), ranking contract updates, and ME-page Top10 ranking UI with sort toggles and formula/breakdown display.
+- Updated M6 governance closure records in `version-control/governance/commands/milestones.md` and `version-control/governance/commands/implementation-status.md`, then re-validated with `npm run validate:gate -- --stage=M6`.
+
+### [2026-05-01 03:12:00 LOCAL] [0.6.1] Advance M6 ranking baseline with explainable score fields.
+
+- Upgraded `GET /api/companions/rankings` to return exposure/ranking evidence fields (`poolTag`, `scoreBreakdown`) alongside the composite score.
+- Updated `client/services/businessApi.ts` ranking contract to include explainable ranking payload types for next-step client presentation.
+- Refreshed M6 governance evidence in `version-control/governance/commands/milestones.md` with a passed stage-gate snapshot.
+
+### [2026-05-01 02:50:00 LOCAL] [0.6.1] Shift exposure terminology from forbidden to planned M6 development.
+
+- Updated `scripts/validate-companion-level.mjs` to stop blocking exposure-related vocabulary in M5 gate checks while keeping ALG baseline checks intact.
+- Updated `version-control/governance/rules/algorithm-rules.mdc` and `version-control/governance/commands/validate-companion-level.md` to state that exposure pool/weight belongs to M6 governed implementation scope.
+- Added explicit M6 exposure pool + ranking development plan to `version-control/governance/commands/milestones.md` with closure acceptance criteria.
 
 ### [2026-05-01 02:06:00 LOCAL] [0.6.0] Closed M5 companion-level settlement milestone with gate-backed evidence.
 
@@ -62,9 +80,9 @@ Notable product-facing and governance changes. **Canonical numeric SemVer** is `
 ### Added
 
 - **M0 harness closure**: `version-control/governance/rules/validator-system.mdc` (full-system static gate checks; supersedes legacy split validator markdown files).
-- **`version-control/scripts/verify-version.mjs`** — asserts `version-control/version` matches `package.json` (also runs at start of `validate:gate`).
+- **`version-control/scripts/verify-version.mjs`** ??asserts `version-control/version` matches `package.json` (also runs at start of `validate:gate`).
 - **[`implementation-status.md`](governance/commands/implementation-status.md)** (code vs milestones audit) and **[`development-principles.mdc`](governance/rules/development-principles.mdc)**.
-- **Global principles** ([`milestones.md`](governance/commands/milestones.md)): *Shallow surfaces* — minimize dependency graphs, interface stacks, component nesting, and indirect call depth.
+- **Global principles** ([`milestones.md`](governance/commands/milestones.md)): *Shallow surfaces* ??minimize dependency graphs, interface stacks, component nesting, and indirect call depth.
 
 ### Changed
 
