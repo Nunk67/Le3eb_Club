@@ -4,8 +4,12 @@ dist/
 coverage/
 
 # Cursor / local harness (not app source; keep on your machine only)
-.cursor/
+.cursor/*
 .cursorignore
+!.cursor/commands/
+!.cursor/commands/*.md
+!.cursor/rules/
+!.cursor/rules/*.md
 
 # Context log (local / optional share; filename matches root or version-control/)
 context-control.md
