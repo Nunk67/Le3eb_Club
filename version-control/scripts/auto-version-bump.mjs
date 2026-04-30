@@ -5,7 +5,7 @@ import path from "node:path";
 const root = process.cwd();
 const versionFile = path.join(root, "version-control", "version");
 const packageFile = path.join(root, "package.json");
-const implStatusFile = path.join(root, ".cursor", "commands", "implementation-status.md");
+const implStatusFile = path.join(root, "version-control", "governance", "commands", "implementation-status.md");
 const stateFile = path.join(root, "version-control", ".state", "version-auto-state.json");
 
 const MILESTONE_TO_VERSION = {
@@ -30,7 +30,6 @@ const IGNORED_PATHS = new Set([
   "package.json",
   "package-lock.json",
   "pnpm-lock.yaml",
-  ".cursor/hooks.json",
 ]);
 
 function readFileSafe(absPath) {

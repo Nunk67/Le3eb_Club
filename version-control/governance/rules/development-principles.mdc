@@ -7,8 +7,8 @@ alwaysApply: true
 
 Condensed principles for day-to-day changes. Canonical milestone/governance context:
 
-- `.cursor/commands/milestones.md`
-- `.cursor/rules/version-control.mdc`
+- `version-control/governance/commands/milestones.md`
+- `version-control/governance/rules/version-control.mdc`
 
 - Single source of truth
 - Minimal change

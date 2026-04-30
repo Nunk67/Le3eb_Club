@@ -49,11 +49,11 @@ function collectImplementationScanPaths() {
 function main() {
   const failures = [];
 
-  const verificationPath = ".cursor/commands/validate-companion-level.md";
-  const systemValidatorPath = ".cursor/rules/validator-system.mdc";
-  const updateMilestonePath = ".cursor/commands/update-milestone.md";
-  const snapshotPath = ".cursor/commands/snapshot-version.md";
-  const rulesPath = ".cursor/rules/algorithm-rules.mdc";
+  const verificationPath = "version-control/governance/commands/validate-companion-level.md";
+  const systemValidatorPath = "version-control/governance/rules/validator-system.mdc";
+  const updateMilestonePath = "version-control/governance/commands/update-milestone.md";
+  const snapshotPath = "version-control/governance/commands/snapshot-version.md";
+  const rulesPath = "version-control/governance/rules/algorithm-rules.mdc";
 
   const verification = read(verificationPath);
   const systemValidator = read(systemValidatorPath);

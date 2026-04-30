@@ -17,31 +17,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            code:
-              - '**'
-              - '!.cursor/**'
-
       - uses: pnpm/action-setup@v4
-        if: steps.changes.outputs.code == 'true'
 
       - uses: actions/setup-node@v4
-        if: steps.changes.outputs.code == 'true'
         with:
           node-version: "22"
           cache: "pnpm"
 
       - name: Install
-        if: steps.changes.outputs.code == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Stage Gate (Full System)
-        if: steps.changes.outputs.code == 'true'
         run: pnpm run validate:gate -- --profile=full-system
-
-      - name: Skip CI (only .cursor/ changed)
-        if: steps.changes.outputs.code != 'true'
-        run: echo "No changes outside .cursor/; skipping install and gates."

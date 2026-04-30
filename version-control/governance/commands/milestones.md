@@ -56,13 +56,13 @@ Define the complete system architecture before feature expansion and keep bounda
 
 ### Deliverables
 
-- Architecture blueprint: `.cursor/commands/architecture-blueprint.md`
+- Architecture blueprint: `version-control/governance/commands/architecture-blueprint.md`
 - Boundary evidence in code paths:
   - `backend/server.ts`
   - `client/main.tsx`
   - `admin/AdminWorkbench.tsx`
   - `shared/`
-- M1 status row updated in `.cursor/commands/implementation-status.md`
+- M1 status row updated in `version-control/governance/commands/implementation-status.md`
 
 ### Acceptance criteria
 
@@ -101,7 +101,7 @@ Establish persistent data foundations and backend runtime invariants so higher-s
   - `shared/apiClient.ts`
 - Stage gate proof:
   - `npm run validate:gate -- --stage=M2`
-- M2 status row updated in `.cursor/commands/implementation-status.md`
+- M2 status row updated in `version-control/governance/commands/implementation-status.md`
 
 ### Acceptance criteria
 
@@ -152,13 +152,13 @@ Establish auditable policy/economic rule governance and ensure rule definitions,
   - this file (`M3 closure record (inline)`)
 - Policy/algorithm governance evidence:
   - `scripts/validate-policy-cost.mjs`
-  - `.cursor/commands/validate-policy-cost.md`
-  - `.cursor/rules/algorithm-rules.mdc` (policy-cost sections; replaces legacy split policy-cost rule files)
+  - `version-control/governance/commands/validate-policy-cost.md`
+  - `version-control/governance/rules/algorithm-rules.mdc` (policy-cost sections; replaces legacy split policy-cost rule files)
 - Runtime evidence anchors:
   - `backend/server.ts`
 - Stage gate proof:
   - `npm run validate:gate -- --stage=M3`
-- M3 status row updated in `.cursor/commands/implementation-status.md`
+- M3 status row updated in `version-control/governance/commands/implementation-status.md`
 
 ### Acceptance criteria
 
@@ -180,7 +180,7 @@ Establish auditable policy/economic rule governance and ensure rule definitions,
 
 - **Target**: `M3` (`0.4.0`)
 - **Scope closure**:
-  - Policy-cost rules and mapping artifacts are defined and versioned in `.cursor/rules/`.
+  - Policy-cost rules and mapping artifacts are defined and versioned in `version-control/governance/rules/`.
   - Policy governance validation is active in `scripts/validate-policy-cost.mjs`.
   - Stage gate integrates policy checks before higher stages.
   - Runtime economic behavior anchor paths are documented.
@@ -192,7 +192,7 @@ Establish auditable policy/economic rule governance and ensure rule definitions,
 
 ## Phase audit framework (M4-M10)
 
-Use this structure for every remaining milestone closure record under `.cursor/commands/`:
+Use this structure for every remaining milestone closure record under `version-control/governance/commands/`:
 
 - **Current status**: `Not started` / `Partial` / `Closed`
 - **Primary evidence**: code paths + rule/command docs + scripts
@@ -205,7 +205,7 @@ Required per-phase closure steps:
 2. run `npm run verify:version`
 3. run `npm run validate:gate -- --stage=Mk`
 4. update phase closure section in this file (`M4-M10 audit stubs`)
-5. update `.cursor/commands/implementation-status.md`
+5. update `version-control/governance/commands/implementation-status.md`
 6. update `version-control/changelog.md`
 7. append audit summary to `version-control/context-control.md`
 
@@ -232,8 +232,8 @@ Required per-phase closure steps:
 - **Current status**: `Partial`
 - **Primary evidence**:
   - `scripts/validate-companion-level.mjs`
-  - `.cursor/commands/validate-companion-level.md`
-  - `.cursor/rules/algorithm-rules.mdc` (companion-level sections; replaces legacy split companion-level rule files)
+  - `version-control/governance/commands/validate-companion-level.md`
+  - `version-control/governance/rules/algorithm-rules.mdc` (companion-level sections; replaces legacy split companion-level rule files)
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M5`
   - Latest result: `TBD`
@@ -290,7 +290,7 @@ Required per-phase closure steps:
 - **Current status**: `Partial`
 - **Primary evidence**:
   - `backend/server.ts` (system integration runtime)
-  - `.cursor/rules/validator-system.mdc` (full-system gate matrix and validator policy; replaces legacy split validator markdown files)
+  - `version-control/governance/rules/validator-system.mdc` (full-system gate matrix and validator policy; replaces legacy split validator markdown files)
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M9`
   - Latest result: `TBD`

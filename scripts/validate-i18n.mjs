@@ -19,7 +19,7 @@ function mustInclude(content, token, file, failures) {
 
 function main() {
   const failures = [];
-  const milestonesPath = ".cursor/commands/milestones.md";
+  const milestonesPath = "version-control/governance/commands/milestones.md";
   const milestones = read(milestonesPath);
 
   for (const locale of ["ar", "zh-CN", "en", "fr", "ru", "tr"]) {

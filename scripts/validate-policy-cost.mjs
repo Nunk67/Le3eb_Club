@@ -20,11 +20,11 @@ function mustInclude(content, token, file, failures) {
 function main() {
   const failures = [];
 
-  const verificationPath = ".cursor/commands/validate-policy-cost.md";
-  const rulesPath = ".cursor/rules/algorithm-rules.mdc";
-  const systemValidatorPath = ".cursor/rules/validator-system.mdc";
-  const milestonePath = ".cursor/commands/update-milestone.md";
-  const snapshotPath = ".cursor/commands/snapshot-version.md";
+  const verificationPath = "version-control/governance/commands/validate-policy-cost.md";
+  const rulesPath = "version-control/governance/rules/algorithm-rules.mdc";
+  const systemValidatorPath = "version-control/governance/rules/validator-system.mdc";
+  const milestonePath = "version-control/governance/commands/update-milestone.md";
+  const snapshotPath = "version-control/governance/commands/snapshot-version.md";
 
   const verification = read(verificationPath);
   const rules = read(rulesPath);

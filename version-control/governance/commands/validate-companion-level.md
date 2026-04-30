@@ -2,7 +2,7 @@
 
 > CORE-ALGO-CHECKPOINT: ALG checks are blocking gates for companion-level evolution.
 
-Checks **ALG-01** … **ALG-08** must all pass before advancing to the next phase.
+Checks **ALG-01** through **ALG-08** must all pass before advancing to the next phase.
 
 | ID | Topic |
 |----|--------|

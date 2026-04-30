@@ -3,19 +3,15 @@ build/
 dist/
 coverage/
 
-# Cursor / local harness (not app source; keep on your machine only)
-.cursor/*
-.cursorignore
-!.cursor/commands/
-!.cursor/commands/*.md
-!.cursor/rules/
-!.cursor/rules/*.mdc
+# Cursor IDE workspace (local only; governance lives under version-control/governance/)
+.cursor/
 
 # Context log (local / optional share; filename matches root or version-control/)
 context-control.md
 version-control/context-control.md
 version-control/.state/
-version-control/hooks/
+version-control/hooks/*
+!version-control/hooks/after-file-edit-version-sync.mjs
 version-control/scripts/*
 !version-control/scripts/*.mjs
 

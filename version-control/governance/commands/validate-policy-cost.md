@@ -2,7 +2,7 @@
 
 > CORE-ALGO-CHECKPOINT: POL checks are release-blocking for policy-cost consistency.
 
-Baseline checks **POL-01** … **POL-05** must all pass before advancing to the next phase.
+Baseline checks **POL-01** through **POL-05** must all pass before advancing to the next phase.
 
 | ID | Check |
 |----|--------|

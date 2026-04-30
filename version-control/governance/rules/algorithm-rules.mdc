@@ -12,14 +12,14 @@ alwaysApply: true
 
 Weekly score and level thresholds are defined in governance docs; keep this file aligned with:
 
-- `.cursor/commands/validate-companion-level.md`
+- `version-control/governance/commands/validate-companion-level.md`
 - `scripts/validate-companion-level.mjs`
 
 ### Companion mapping
 
 Maps companion-level identifiers to persisted fields used by algorithm validation and milestone evidence.
 
-Canonical phase reference: `.cursor/commands/milestones.md` (**M5**).
+Canonical phase reference: `version-control/governance/commands/milestones.md` (**M5**).
 
 ### Companion guardrails
 
@@ -44,5 +44,5 @@ Field **`guild_month_bonus_rate`** maps operational guild incentives to persiste
 
 Keep this file synchronized with:
 
-- `.cursor/commands/validate-policy-cost.md`
+- `version-control/governance/commands/validate-policy-cost.md`
 - `scripts/validate-policy-cost.mjs`

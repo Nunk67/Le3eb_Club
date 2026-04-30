@@ -11,10 +11,10 @@ Canonical SemVer policy for this repo:
   - `version-control/version`
   - `package.json` version
   - `version-control/changelog.md`
-- Milestone-derived mapping follows `.cursor/commands/milestones.md`.
+- Milestone-derived mapping follows `version-control/governance/commands/milestones.md`.
 - Do not skip milestone versions.
 - `verify:version` must pass before gate promotion.
-- Gate pass does **not** equal milestone closure; milestone status is recorded separately in `.cursor/commands/implementation-status.md`.
+- Gate pass does **not** equal milestone closure; milestone status is recorded separately in `version-control/governance/commands/implementation-status.md`.
 
 ## SemVer source of truth
 
@@ -27,7 +27,7 @@ Canonical SemVer policy for this repo:
 - Hook trigger config: `.cursor/hooks.json` (`afterFileEdit`)
 - Hook implementation: `version-control/hooks/after-file-edit-version-sync.mjs`
 - Script entry: `npm run version:auto` (`version-control/scripts/auto-version-bump.mjs`)
-- Baseline source: highest **Closed** milestone in `.cursor/commands/implementation-status.md`
+- Baseline source: highest **Closed** milestone in `version-control/governance/commands/implementation-status.md`
 - Per-change bump: PATCH bump once per HEAD batch
 
 ## Changelog & context workflow
@@ -47,7 +47,7 @@ Canonical SemVer policy for this repo:
 
 ## Milestone policy summary
 
-- Milestone mapping: `M0 -> 0.1.0` ... `M10 -> 1.0.0` (see `.cursor/commands/milestones.md`).
+- Milestone mapping: `M0 -> 0.1.0` ... `M10 -> 1.0.0` (see `version-control/governance/commands/milestones.md`).
 - Do not skip milestone-derived versions.
 - `verify:version` and stage gate checks must pass before milestone closure.
-- Keep closure records aligned in `.cursor/commands/implementation-status.md`.
+- Keep closure records aligned in `version-control/governance/commands/implementation-status.md`.
