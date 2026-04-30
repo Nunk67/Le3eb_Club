@@ -12,7 +12,8 @@ context-control.md
 version-control/context-control.md
 version-control/.state/
 version-control/hooks/
-version-control/scripts/
+version-control/scripts/*
+!version-control/scripts/*.mjs
 
 # GitHub metadata (keep workflows tracked for Actions)
 .github/*
