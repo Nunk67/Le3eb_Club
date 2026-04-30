@@ -9,7 +9,7 @@ coverage/
 !.cursor/commands/
 !.cursor/commands/*.md
 !.cursor/rules/
-!.cursor/rules/*.md
+!.cursor/rules/*.mdc
 
 # Context log (local / optional share; filename matches root or version-control/)
 context-control.md

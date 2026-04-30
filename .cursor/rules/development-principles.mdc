@@ -1,9 +1,18 @@
+---
+description: 
+alwaysApply: true
+---
+
 # Development Principles (Rule)
 
-Executable distillation of global principles from `.cursor/harness/milestones.md`.
+Condensed principles for day-to-day changes. Canonical milestone/governance context:
+
+- `.cursor/commands/milestones.md`
+- `.cursor/rules/version-control.mdc`
 
 - Single source of truth
 - Minimal change
+- Plan-first execution (assess feasibility before making changes)
 - Evidence-based decisions
 - Context convergence
 - State-driven architecture

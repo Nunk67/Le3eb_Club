@@ -1,3 +1,8 @@
+---
+description: 
+alwaysApply: true
+---
+
 # Version control (migrated rule)
 
 Canonical SemVer policy for this repo:
@@ -39,3 +44,10 @@ Canonical SemVer policy for this repo:
   - Append-only work log.
   - Timestamp uses local machine time in heading format: `### [YYYY-MM-DD HH:MM:SS LOCAL]`.
   - Keep one blank line between entries.
+
+## Milestone policy summary
+
+- Milestone mapping: `M0 -> 0.1.0` ... `M10 -> 1.0.0` (see `.cursor/commands/milestones.md`).
+- Do not skip milestone-derived versions.
+- `verify:version` and stage gate checks must pass before milestone closure.
+- Keep closure records aligned in `.cursor/commands/implementation-status.md`.

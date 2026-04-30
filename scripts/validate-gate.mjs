@@ -49,12 +49,13 @@ function runStaticChecksForProfile(profile) {
   const root = process.cwd();
   const checks = [
     {
-      file: ".cursor/rules/validator-full-system-gate-matrix.md",
-      mustInclude: ["Business Domain Gate", "Admin Domain Gate", "Production Domain Gate"],
-    },
-    {
-      file: ".cursor/rules/validator-system.md",
-      mustInclude: ["full-system gate matrix requirements are aligned with current stage"],
+      file: ".cursor/rules/validator-system.mdc",
+      mustInclude: [
+        "full-system gate matrix requirements are aligned with current stage",
+        "Business Domain Gate",
+        "Admin Domain Gate",
+        "Production Domain Gate",
+      ],
     },
   ];
   const failures = [];

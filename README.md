@@ -140,6 +140,7 @@ CI 工作流：`.github/workflows/ci.yml`（主步骤为 **Stage Gate (Full Syst
 - 管理后台多期能力：审核、风控、对账、审计、导出、排序与游标分页等。
 - **运营向能力**：用户/提现/举报/报表等运营向 API 与 UI；本地存储 schema 升级与启动时数据净化。
 - **M2 数据与后端基础闭环**：持久化 schema + 启动迁移与净化链路 + `M2` 阶段门禁（policy/alg/lint）打通并验证通过。
+- **M4 交易与钱包闭环**：订单与钱包主链路证据完成归档，`M4` 阶段门禁（policy/alg/lint）验证通过并纳入里程碑闭环记录。
 - 工程侧：规则文档与自动化门禁贯通，CI 接入阶段门禁；配套《开发手册》便于对齐口径。
 
 ### In Progress
@@ -150,7 +151,7 @@ CI 工作流：`.github/workflows/ci.yml`（主步骤为 **Stage Gate (Full Syst
 ## 数据持久化
 
 - 状态写入 **`backend/data/storage.json`**（用户、陪玩、订单、评价、钱包、会话、风控、审计、提现与举报等聚合存储）。
-- **`schemaVersion`** 在启动时向前迁移；产品 SemVer 以 `version-control/version` 与 `package.json` 对齐为准，与里程碑映射遵循 `.cursor/rules/version-control.md`。
+- **`schemaVersion`** 在启动时向前迁移；产品 SemVer 以 `version-control/version` 与 `package.json` 对齐为准，与里程碑映射遵循 `.cursor/rules/version-control.mdc`。
 - 重启进程后数据从文件恢复，便于本地长链路验证（非纯内存即失）。
 
 ## 已知限制

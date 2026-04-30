@@ -21,15 +21,13 @@ function main() {
   const failures = [];
 
   const verificationPath = ".cursor/commands/validate-policy-cost.md";
-  const rulesPath = ".cursor/rules/algorithm-policy-cost-rules.md";
-  const mappingPath = ".cursor/rules/algorithm-policy-cost-mapping.md";
-  const systemValidatorPath = ".cursor/rules/validator-system.md";
+  const rulesPath = ".cursor/rules/algorithm-rules.mdc";
+  const systemValidatorPath = ".cursor/rules/validator-system.mdc";
   const milestonePath = ".cursor/commands/update-milestone.md";
   const snapshotPath = ".cursor/commands/snapshot-version.md";
 
   const verification = read(verificationPath);
   const rules = read(rulesPath);
-  const mapping = read(mappingPath);
   const systemValidator = read(systemValidatorPath);
   const milestone = read(milestonePath);
   const snapshot = read(snapshotPath);
@@ -53,7 +51,7 @@ function main() {
   // Must explicitly define exclusion of guild monthly rewards
   mustInclude(rules, "Explicitly excluded", rulesPath, failures);
   mustInclude(rules, "guild monthly bonus", rulesPath, failures);
-  mustInclude(mapping, "guild_month_bonus_rate", mappingPath, failures);
+  mustInclude(rules, "guild_month_bonus_rate", rulesPath, failures);
 
   // Core rate constants
   mustInclude(rules, "40%", rulesPath, failures);

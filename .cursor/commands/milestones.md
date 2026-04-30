@@ -94,7 +94,7 @@ Establish persistent data foundations and backend runtime invariants so higher-s
 ### Deliverables
 
 - Data/backend evidence in code paths:
-  - `.cursor/commands/data-backend-foundation.md`
+  - this file (`M2 closure record (inline)`)
   - `backend/server.ts`
   - `backend/data/storage.json`
   - `shared/types.ts`
@@ -118,6 +118,200 @@ Establish persistent data foundations and backend runtime invariants so higher-s
 - [ ] State load + sanitize + persist flow is implemented
 - [ ] M2 status row reflects current closure decision
 - [ ] Stage gate output for `--stage=M2` is green
+
+### M2 closure record (inline)
+
+- **Target**: `M2` (`0.3.0`)
+- **Scope closure**:
+  - Persistent storage uses `backend/data/storage.json` with explicit `schemaVersion`.
+  - Startup pipeline in `backend/server.ts` covers load -> migrate -> sanitize -> persist fallback.
+  - Backend baseline APIs and auth/session state run in the monolith runtime.
+  - Shared contracts are centralized in `shared/types.ts`.
+- **Validation result**:
+  - Command: `npm run validate:gate -- --stage=M2`
+  - Result: `passed`
+- **Closure decision**:
+  - `M2` is considered **Closed** with current evidence and validation output.
+
+## M3 closure template (Policy and economic rules)
+
+### Objective
+
+Establish auditable policy/economic rule governance and ensure rule definitions, validation scripts, and runtime evidence remain consistent before transaction-level closure stages.
+
+### Scope
+
+- Policy cost definition and mapping governance
+- Algorithm-policy validation integration in stage gate
+- Cross-doc consistency between rules, commands, and system validators
+- Runtime evidence anchors for economic behavior paths
+
+### Deliverables
+
+- Policy/economic closure record:
+  - this file (`M3 closure record (inline)`)
+- Policy/algorithm governance evidence:
+  - `scripts/validate-policy-cost.mjs`
+  - `.cursor/commands/validate-policy-cost.md`
+  - `.cursor/rules/algorithm-rules.mdc` (policy-cost sections; replaces legacy split policy-cost rule files)
+- Runtime evidence anchors:
+  - `backend/server.ts`
+- Stage gate proof:
+  - `npm run validate:gate -- --stage=M3`
+- M3 status row updated in `.cursor/commands/implementation-status.md`
+
+### Acceptance criteria
+
+- Policy rules and mappings are explicit and internally consistent
+- Validation scripts and governance docs stay in sync
+- M3 stage checks pass with no type errors
+- M3 gate command passes:
+  - `npm run validate:gate -- --stage=M3`
+
+### Evidence checklist
+
+- [ ] this file includes an up-to-date `M3 closure record (inline)` section
+- [ ] policy-cost validator and policy rule/mapping docs are mutually consistent
+- [ ] runtime economic behavior anchors are documented
+- [ ] M3 status row reflects closure decision
+- [ ] stage gate output for `--stage=M3` is green
+
+### M3 closure record (inline)
+
+- **Target**: `M3` (`0.4.0`)
+- **Scope closure**:
+  - Policy-cost rules and mapping artifacts are defined and versioned in `.cursor/rules/`.
+  - Policy governance validation is active in `scripts/validate-policy-cost.mjs`.
+  - Stage gate integrates policy checks before higher stages.
+  - Runtime economic behavior anchor paths are documented.
+- **Validation result**:
+  - Command: `npm run validate:gate -- --stage=M3`
+  - Result: `passed`
+- **Closure decision**:
+  - `M3` is considered **Closed** with governance evidence and stage gate output.
+
+## Phase audit framework (M4-M10)
+
+Use this structure for every remaining milestone closure record under `.cursor/commands/`:
+
+- **Current status**: `Not started` / `Partial` / `Closed`
+- **Primary evidence**: code paths + rule/command docs + scripts
+- **Gate proof**: required gate command and latest result
+- **Closure decision**: go/no-go with risk notes
+
+Required per-phase closure steps:
+
+1. implement or update target phase capabilities
+2. run `npm run verify:version`
+3. run `npm run validate:gate -- --stage=Mk`
+4. update phase closure section in this file (`M4-M10 audit stubs`)
+5. update `.cursor/commands/implementation-status.md`
+6. update `version-control/changelog.md`
+7. append audit summary to `version-control/context-control.md`
+
+## M4-M10 audit stubs (inline)
+
+### M4 transaction and wallet closure record
+
+- **Milestone**: `M4` (`0.5.0`)
+- **Current status**: `Closed`
+- **Primary evidence**:
+  - `backend/server.ts` (order/wallet flows)
+  - `shared/types.ts` (transaction and wallet contracts)
+  - `client/services/businessApi.ts`
+- **Gate proof**:
+  - Required command: `npm run validate:gate -- --stage=M4`
+  - Latest result: `passed`
+- **Closure decision**:
+  - Decision: `Closed`
+  - Risks/notes: M4 closure is limited to transaction and wallet baseline in current monolith scope; deeper finance governance remains tracked in M8+ admin depth.
+
+### M5 companion level and settlement audit stub
+
+- **Milestone**: `M5` (`0.6.0`)
+- **Current status**: `Partial`
+- **Primary evidence**:
+  - `scripts/validate-companion-level.mjs`
+  - `.cursor/commands/validate-companion-level.md`
+  - `.cursor/rules/algorithm-rules.mdc` (companion-level sections; replaces legacy split companion-level rule files)
+- **Gate proof**:
+  - Required command: `npm run validate:gate -- --stage=M5`
+  - Latest result: `TBD`
+- **Closure decision**:
+  - Decision: `Not closed`
+  - Risks/notes: pending runtime linkage summary and gate snapshot.
+
+### M6 exposure and ranking audit stub
+
+- **Milestone**: `M6` (`0.7.0`)
+- **Current status**: `Not started / early`
+- **Primary evidence**:
+  - `TBD` (to be filled when exposure/ranking implementation lands)
+- **Gate proof**:
+  - Required command: `npm run validate:gate -- --stage=M6`
+  - Latest result: `TBD`
+- **Closure decision**:
+  - Decision: `Not closed`
+  - Risks/notes: phase implementation and evidence are not complete yet.
+
+### M7 client integration audit stub
+
+- **Milestone**: `M7` (`0.8.0`)
+- **Current status**: `Partial`
+- **Primary evidence**:
+  - `client/`
+  - `admin/`
+  - `shared/`
+- **Gate proof**:
+  - Required command: `npm run validate:gate -- --stage=M7`
+  - Latest result: `TBD`
+- **Closure decision**:
+  - Decision: `Not closed`
+  - Risks/notes: pending integrated closure evidence and gate snapshot.
+
+### M8 admin operations audit stub
+
+- **Milestone**: `M8` (`0.9.0`)
+- **Current status**: `Partial`
+- **Primary evidence**:
+  - `admin/AdminWorkbench.tsx`
+  - `admin/services/adminApi.ts`
+  - `backend/server.ts` (admin operation paths)
+- **Gate proof**:
+  - Required command: `npm run validate:gate -- --stage=M8`
+  - Latest result: `TBD`
+- **Closure decision**:
+  - Decision: `Not closed`
+  - Risks/notes: pending full admin capability closure record and gate snapshot.
+
+### M9 full-system integration audit stub
+
+- **Milestone**: `M9` (`0.10.0`)
+- **Current status**: `Partial`
+- **Primary evidence**:
+  - `backend/server.ts` (system integration runtime)
+  - `.cursor/rules/validator-system.mdc` (full-system gate matrix and validator policy; replaces legacy split validator markdown files)
+- **Gate proof**:
+  - Required command: `npm run validate:gate -- --stage=M9`
+  - Latest result: `TBD`
+- **Closure decision**:
+  - Decision: `Not closed`
+  - Risks/notes: pending integrated system proof and gate snapshot.
+
+### M10 release hardening audit stub
+
+- **Milestone**: `M10` (`1.0.0`)
+- **Current status**: `Partial`
+- **Primary evidence**:
+  - `.github/workflows/ci.yml`
+  - `scripts/validate-gate.mjs`
+  - `version-control/` (version/changelog/context governance)
+- **Gate proof**:
+  - Required command: `npm run validate:gate -- --stage=M10`
+  - Latest result: `TBD`
+- **Closure decision**:
+  - Decision: `Not closed`
+  - Risks/notes: pending final release hardening proof and gate snapshot.
 
 ## i18n rollout (phase plan)
 

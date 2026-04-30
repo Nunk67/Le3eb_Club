@@ -1,0 +1,48 @@
+---
+description: 
+alwaysApply: true
+---
+
+# Algorithm Rules (Merged)
+
+## Companion level
+
+> CORE-ALGO-MARKER: Companion level settlement logic is governance-critical.
+> Keep threshold/decay semantics aligned with ALG checks before any gate promotion.
+
+Weekly score and level thresholds are defined in governance docs; keep this file aligned with:
+
+- `.cursor/commands/validate-companion-level.md`
+- `scripts/validate-companion-level.mjs`
+
+### Companion mapping
+
+Maps companion-level identifiers to persisted fields used by algorithm validation and milestone evidence.
+
+Canonical phase reference: `.cursor/commands/milestones.md` (**M5**).
+
+### Companion guardrails
+
+No legacy weight keys.
+
+## Policy cost
+
+> CORE-ALGO-MARKER: Policy cost tiers directly affect payout and risk accounting.
+> Any tier change must keep POL validation tokens and mapping synchronized.
+
+### Cost tiers
+
+Core companion revenue share bands include **40%** as the documented baseline for the lowest tier in this governance snapshot.
+
+### Exclusions
+
+**Explicitly excluded** from automatic policy-cost inclusion: **guild monthly bonus** pools (tracked separately; do not merge into hourly settlement tiers).
+
+### Policy mapping
+
+Field **`guild_month_bonus_rate`** maps operational guild incentives to persisted config when enabled.
+
+Keep this file synchronized with:
+
+- `.cursor/commands/validate-policy-cost.md`
+- `scripts/validate-policy-cost.mjs`

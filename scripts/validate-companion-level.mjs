@@ -50,22 +50,16 @@ function main() {
   const failures = [];
 
   const verificationPath = ".cursor/commands/validate-companion-level.md";
-  const systemValidatorPath = ".cursor/rules/validator-system.md";
-  const frontendValidatorPath = ".cursor/rules/validator-frontend.md";
-  const securityValidatorPath = ".cursor/rules/validator-security.md";
+  const systemValidatorPath = ".cursor/rules/validator-system.mdc";
   const updateMilestonePath = ".cursor/commands/update-milestone.md";
   const snapshotPath = ".cursor/commands/snapshot-version.md";
-  const rulesPath = ".cursor/rules/algorithm-companion-level-rules.md";
-  const mappingPath = ".cursor/rules/algorithm-companion-level-mapping.md";
+  const rulesPath = ".cursor/rules/algorithm-rules.mdc";
 
   const verification = read(verificationPath);
   const systemValidator = read(systemValidatorPath);
-  const frontendValidator = read(frontendValidatorPath);
-  const securityValidator = read(securityValidatorPath);
   const updateMilestone = read(updateMilestonePath);
   const snapshot = read(snapshotPath);
   const rules = read(rulesPath);
-  const mapping = read(mappingPath);
 
   // ALG gate baseline must exist and be complete.
   for (let i = 1; i <= 8; i += 1) {
@@ -80,8 +74,7 @@ function main() {
 
   // Validators and feedback loop must explicitly gate ALG checks.
   assertIncludes(systemValidator, "ALG-", systemValidatorPath, failures);
-  assertIncludes(frontendValidator, "ALG-", frontendValidatorPath, failures);
-  assertIncludes(securityValidator, "algorithm gate", securityValidatorPath, failures);
+  assertIncludes(systemValidator, "algorithm gate", systemValidatorPath, failures);
   assertIncludes(updateMilestone, "ALG-", updateMilestonePath, failures);
   assertIncludes(snapshot, "ALG-", snapshotPath, failures);
 
@@ -89,7 +82,6 @@ function main() {
   const forbiddenTokens = ["exposureBoost", "exposure", "热门位", "曝光权重"];
   for (const token of forbiddenTokens) {
     assertNotIncludes(rules, token, rulesPath, failures);
-    assertNotIncludes(mapping, token, mappingPath, failures);
   }
 
   const implPaths = collectImplementationScanPaths();
