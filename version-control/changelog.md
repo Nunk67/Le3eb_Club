@@ -4,6 +4,12 @@ Notable product-facing and governance changes. **Canonical numeric SemVer** is `
 
 ## [Unreleased]
 
+### [2026-04-30 22:03:00 LOCAL] [0.3.0] Closed M2 data/backend foundation with auditable evidence and green stage gate.
+
+- Closed M2 with explicit evidence path set (data schema, migration, load/sanitize/persist flow, shared contracts) and updated milestone status accordingly.
+- Promoted product SemVer to `0.3.0` for milestone-aligned release discipline (`version-control/version` and `package.json` synced).
+- Re-validated closure with `npm run validate:gate -- --stage=M2` and confirmed policy/algorithm/lint checks all passed.
+
 ### [2026-04-30 21:33:16 LOCAL] [0.2.0] Completed M1 blueprint closure with explicit deliverables and evidence links.
 
 - Added M1 closure template and evidence checklist to `.cursor/commands/milestones.md`.
