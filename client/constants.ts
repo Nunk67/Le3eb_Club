@@ -1,5 +1,8 @@
 import { Game, EPal, Post } from '@shared/types';
 
+/** Mirrors `version-control/version` for UI display; bump together with product SemVer. */
+export const PRODUCT_SEMVER = '0.8.0';
+
 export const GAMES: Game[] = [
   {
     id: 'lol',

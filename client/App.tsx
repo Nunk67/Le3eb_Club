@@ -68,8 +68,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Category, Game, EPal, EPalServiceVariant, Coupon, Playlink, Post, Message, ChatSession, IMOrder, Wallet as WalletType, RechargePackage, WalletTransaction, RechargeOrder } from '@shared/types';
-import { GAMES, EPALS, POSTS } from './constants';
+import { GAMES, EPALS, POSTS, PRODUCT_SEMVER } from './constants';
 import { businessApi, type CompanionRanking } from './services/businessApi';
+import { useI18n } from './i18n/I18nProvider';
 
 // --- Components ---
 
@@ -741,6 +742,7 @@ const SettingsSubPage: React.FC<{
 );
 
 export default function App() {
+  const { locale, setLocale, t, supportedLocales, getLocaleLabel } = useI18n();
   const [currentView, setCurrentView] = useState<View>('HOME');
   const [wallet, setWallet] = useState<WalletType | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -749,7 +751,6 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
   const [cacheSize, setCacheSize] = useState('12.4 MB');
   const userId = 'user_1'; // Mock current user
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -807,11 +808,11 @@ export default function App() {
       const list = await businessApi.listCompanionRankings(token, 10);
       setCompanionRankings(list);
     } catch (error) {
-      setRankingsError((error as Error).message || 'Failed to load rankings');
+      setRankingsError((error as Error).message || t('ranking.loadFailed'));
     } finally {
       setRankingsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchWallet();
@@ -3719,7 +3720,7 @@ export default function App() {
                   <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl group-hover:bg-purple-500/20 transition-all" />
                   <div className="flex items-center justify-between relative z-10">
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Wallet Balance</p>
+                      <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">{t('me.walletBalance')}</p>
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                           <CoinIcon className="w-6 h-6" />
@@ -3745,15 +3746,15 @@ export default function App() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-yellow-400" />
-                      <p className="text-sm font-black text-white uppercase tracking-widest">Companion Rankings</p>
+                      <p className="text-sm font-black text-white uppercase tracking-widest">{t('ranking.title')}</p>
                     </div>
-                    {rankingsLoading && <span className="text-[10px] text-gray-400">Refreshing...</span>}
+                    {rankingsLoading && <span className="text-[10px] text-gray-400">{t('ranking.refreshing')}</span>}
                   </div>
                   <div className="flex items-center gap-2 mb-4">
                     {[
-                      { id: 'SCORE', label: 'By Score' },
-                      { id: 'RATING', label: 'By Rating' },
-                      { id: 'COMPLETED', label: 'By Completed' }
+                      { id: 'SCORE', label: t('ranking.byScore') },
+                      { id: 'RATING', label: t('ranking.byRating') },
+                      { id: 'COMPLETED', label: t('ranking.byCompleted') }
                     ].map(sort => (
                       <button
                         key={sort.id}
@@ -3771,7 +3772,7 @@ export default function App() {
                   {rankingsError ? (
                     <p className="text-xs text-red-300">{rankingsError}</p>
                   ) : sortedRankings.length === 0 ? (
-                    <p className="text-xs text-gray-400">No ranking data available yet.</p>
+                    <p className="text-xs text-gray-400">{t('ranking.noData')}</p>
                   ) : (
                     <div className="space-y-2">
                       {sortedRankings.slice(0, 5).map(item => (
@@ -3779,12 +3780,16 @@ export default function App() {
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-white truncate">#{item.rank} {item.gameName}</p>
                             <p className="text-[10px] text-gray-400">
-                              Score {item.rankingScore.toFixed(2)} · {item.poolTag} · {item.completedOrderCount} completed
+                              {t('ranking.scoreLine', {
+                                score: item.rankingScore.toFixed(2),
+                                poolTag: item.poolTag,
+                                completed: item.completedOrderCount
+                              })}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="text-xs font-bold text-purple-300">★ {item.avgRating.toFixed(2)}</p>
-                            <p className="text-[10px] text-gray-500">{Math.round(item.completionRate * 100)}% completion</p>
+                            <p className="text-[10px] text-gray-500">{t('ranking.completionRate', { rate: Math.round(item.completionRate * 100) })}</p>
                           </div>
                         </div>
                       ))}
@@ -3794,13 +3799,13 @@ export default function App() {
                     onClick={() => setShowRankingModal(true)}
                     className="mt-4 w-full rounded-xl bg-white/5 border border-white/10 py-2 text-xs font-bold text-gray-200 hover:bg-white/10 transition-all"
                   >
-                    View Top 10
+                    {t('ranking.viewTop10')}
                   </button>
                 </GlassCard>
 
                 {/* Main Menu */}
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2 mb-4">Account Management</p>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2 mb-4">{t('me.accountManagement')}</p>
                   
                   <div className="grid grid-cols-1 gap-2">
                     <button 
@@ -3812,8 +3817,8 @@ export default function App() {
                           <FileText className="w-6 h-6" />
                         </div>
                         <div className="text-left">
-                          <p className="font-bold text-white">My Orders</p>
-                          <p className="text-[10px] text-gray-500 font-medium">Manage your service history</p>
+                          <p className="font-bold text-white">{t('me.myOrders')}</p>
+                          <p className="text-[10px] text-gray-500 font-medium">{t('me.myOrdersSubtitle')}</p>
                         </div>
                       </div>
                       <ChevronRight className="w-5 h-5 text-gray-600 group-hover:translate-x-1 transition-transform" />
@@ -3830,8 +3835,8 @@ export default function App() {
                               <Store className="w-6 h-6" />
                             </div>
                             <div className="text-left">
-                              <p className="font-bold text-white">Player Profile</p>
-                              <p className="text-[10px] text-gray-500 font-medium">Manage your services & price</p>
+                              <p className="font-bold text-white">{t('me.playerProfile')}</p>
+                              <p className="text-[10px] text-gray-500 font-medium">{t('me.playerProfileSubtitle')}</p>
                             </div>
                           </div>
                           <ChevronRight className="w-5 h-5 text-gray-600 group-hover:translate-x-1 transition-transform" />
@@ -3843,8 +3848,8 @@ export default function App() {
                               <div className={`w-2.5 h-2.5 rounded-full ${isPlayerOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
                             </div>
                             <div className="text-left">
-                              <p className="font-bold text-white">Online Status</p>
-                              <p className="text-[10px] text-gray-500 font-medium">{isPlayerOnline ? 'Visible to customers' : 'Hidden from list'}</p>
+                              <p className="font-bold text-white">{t('me.onlineStatus')}</p>
+                              <p className="text-[10px] text-gray-500 font-medium">{isPlayerOnline ? t('me.onlineVisible') : t('me.onlineHidden')}</p>
                             </div>
                           </div>
                           <button 
@@ -3865,8 +3870,8 @@ export default function App() {
                             <Zap className="w-6 h-6 fill-current" />
                           </div>
                           <div className="text-left">
-                            <p className="font-bold text-white">Become a Player</p>
-                            <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest">Earn Diamonds Now</p>
+                            <p className="font-bold text-white">{t('me.becomePlayer')}</p>
+                            <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest">{t('me.earnDiamonds')}</p>
                           </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-purple-400 group-hover:translate-x-1 transition-transform" />
@@ -3877,13 +3882,13 @@ export default function App() {
 
                 {/* Secondary Menu */}
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2 mb-4">Support & Security</p>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2 mb-4">{t('me.supportSecurity')}</p>
                   <div className="space-y-1">
                     {[
-                      { icon: Settings, label: 'Settings', color: 'text-gray-400', action: () => navigateTo('SETTINGS') },
-                      { icon: ShieldCheck, label: 'Account Security', color: 'text-green-400' },
-                      { icon: HelpCircle, label: 'Help & Support', color: 'text-blue-400' },
-                      { icon: Smile, label: 'Community Guidelines', color: 'text-yellow-400' },
+                      { icon: Settings, label: t('me.menuSettings'), color: 'text-gray-400', action: () => navigateTo('SETTINGS') },
+                      { icon: ShieldCheck, label: t('me.menuAccountSecurity'), color: 'text-green-400' },
+                      { icon: HelpCircle, label: t('me.menuHelp'), color: 'text-blue-400' },
+                      { icon: Smile, label: t('me.menuGuidelines'), color: 'text-yellow-400' },
                     ].map((item) => (
                       <button 
                         key={item.label}
@@ -3920,13 +3925,13 @@ export default function App() {
                       className="w-full max-w-md bg-[#1a1225] rounded-[32px] p-6 relative z-10 border border-white/10 shadow-2xl"
                     >
                       <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
-                      <h3 className="text-lg font-bold text-white mb-6 text-center">Adjust Status</h3>
+                      <h3 className="text-lg font-bold text-white mb-6 text-center">{t('me.adjustStatus')}</h3>
                       <div className="grid grid-cols-1 gap-3">
                         {[
-                          { id: 'ONLINE', label: 'Online', color: 'bg-green-500', icon: <div className="w-2 h-2 rounded-full bg-green-500" /> },
-                          { id: 'OFFLINE', label: 'Offline', color: 'bg-gray-500', icon: <div className="w-2 h-2 rounded-full bg-gray-500" /> },
-                          { id: 'PLAYING', label: 'Playing', color: 'bg-blue-500', icon: <div className="w-2 h-2 rounded-full bg-blue-500" /> },
-                          { id: 'RESTING', label: 'Resting', color: 'bg-yellow-500', icon: <div className="w-2 h-2 rounded-full bg-yellow-500" /> },
+                          { id: 'ONLINE', label: t('me.statusOnline'), color: 'bg-green-500', icon: <div className="w-2 h-2 rounded-full bg-green-500" /> },
+                          { id: 'OFFLINE', label: t('me.statusOffline'), color: 'bg-gray-500', icon: <div className="w-2 h-2 rounded-full bg-gray-500" /> },
+                          { id: 'PLAYING', label: t('me.statusPlaying'), color: 'bg-blue-500', icon: <div className="w-2 h-2 rounded-full bg-blue-500" /> },
+                          { id: 'RESTING', label: t('me.statusResting'), color: 'bg-yellow-500', icon: <div className="w-2 h-2 rounded-full bg-yellow-500" /> },
                         ].map((status) => (
                           <button
                             key={status.id}
@@ -3952,7 +3957,7 @@ export default function App() {
                         onClick={() => setShowStatusModal(false)}
                         className="w-full py-4 mt-6 bg-white/5 rounded-2xl text-sm font-bold text-gray-400 hover:bg-white/10 transition-all"
                       >
-                        Cancel
+                        {t('me.cancel')}
                       </button>
                     </motion.div>
                   </div>
@@ -3973,20 +3978,27 @@ export default function App() {
                 <button onClick={handleBack} className="p-2 bg-white/5 rounded-xl border border-white/10 relative z-10">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h1 className="text-xl font-bold absolute left-1/2 -translate-x-1/2">My Orders</h1>
+                <h1 className="text-xl font-bold absolute left-1/2 -translate-x-1/2">{t('me.myOrders')}</h1>
                 <div className="w-10" />
               </div>
 
               <div className="flex gap-2 p-1 bg-white/5 rounded-2xl border border-white/10">
-                {['ALL', 'PENDING', 'ONGOING', 'COMPLETED'].map((tab) => (
+                {(
+                  [
+                    { id: 'ALL', label: t('orders.tabAll') },
+                    { id: 'PENDING', label: t('orders.tabPending') },
+                    { id: 'ONGOING', label: t('orders.tabOngoing') },
+                    { id: 'COMPLETED', label: t('orders.tabCompleted') }
+                  ] as const
+                ).map(tab => (
                   <button 
-                    key={tab}
-                    onClick={() => setOrderTab(tab as any)}
+                    key={tab.id}
+                    onClick={() => setOrderTab(tab.id as any)}
                     className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      orderTab === tab ? 'bg-purple-600 text-white' : 'text-gray-500 hover:text-gray-300'
+                      orderTab === tab.id ? 'bg-purple-600 text-white' : 'text-gray-500 hover:text-gray-300'
                     }`}
                   >
-                    {tab}
+                    {tab.label}
                   </button>
                 ))}
               </div>
@@ -4177,8 +4189,8 @@ export default function App() {
                     <ArrowLeft className="w-5 h-5" />
                   </button>
                   <div className="flex-1">
-                    <h1 className="text-xl font-bold">Become a Player</h1>
-                    <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest">Step {playerApplicationStep} of 4</p>
+                    <h1 className="text-xl font-bold">{t('me.becomePlayer')}</h1>
+                    <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest">{t('apply.stepOf', { current: playerApplicationStep, total: 4 })}</p>
                   </div>
                 </div>
 
@@ -4200,16 +4212,14 @@ export default function App() {
                       <History className="w-12 h-12 text-purple-400 animate-spin-slow" />
                     </div>
                     <div className="space-y-2">
-                      <h2 className="text-2xl font-black text-white">Application Pending</h2>
-                      <p className="text-sm text-gray-500 max-w-[280px] mx-auto">
-                        Our team is reviewing your application. This usually takes 24-48 hours. We'll notify you once approved!
-                      </p>
+                      <h2 className="text-2xl font-black text-white">{t('apply.pendingTitle')}</h2>
+                      <p className="text-sm text-gray-500 max-w-[280px] mx-auto">{t('apply.pendingBody')}</p>
                     </div>
                     <button 
                       onClick={handleBack}
                       className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold text-white hover:bg-white/10 transition-all"
                     >
-                      Back to Profile
+                      {t('apply.backToProfile')}
                     </button>
                   </div>
                 ) : (
@@ -4218,10 +4228,8 @@ export default function App() {
                     {playerApplicationStep === 1 && (
                       <div className="space-y-6">
                         <div className="space-y-2">
-                          <h2 className="text-2xl font-black text-white">Choose Your Game</h2>
-                          <p className="text-sm text-gray-500">
-                            Select the main game you want to provide services for.
-                          </p>
+                          <h2 className="text-2xl font-black text-white">{t('apply.chooseGameTitle')}</h2>
+                          <p className="text-sm text-gray-500">{t('apply.chooseGameSubtitle')}</p>
                         </div>
 
                         {/* Search Bar */}
@@ -4229,7 +4237,7 @@ export default function App() {
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                           <input 
                             type="text"
-                            placeholder="Search games..."
+                            placeholder={t('apply.searchGamesPlaceholder')}
                             value={applyGameSearchQuery}
                             onChange={(e) => setApplyGameSearchQuery(e.target.value)}
                             className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-bold placeholder:text-gray-600 focus:border-purple-500/50 outline-none transition-all"
@@ -4238,8 +4246,8 @@ export default function App() {
 
                         <div className="flex gap-2 p-1 bg-white/5 rounded-2xl border border-white/10">
                           {[
-                            { id: 'GAMES', label: 'Games' },
-                            { id: 'CHILLING', label: 'Chill' }
+                            { id: 'GAMES', label: t('apply.tabGames') },
+                            { id: 'CHILLING', label: t('apply.tabChill') }
                           ].map((tab) => (
                             <button 
                               key={tab.id}
@@ -4308,9 +4316,11 @@ export default function App() {
                     {playerApplicationStep === 2 && (
                       <div className="space-y-8">
                         <div className="space-y-2">
-                          <h2 className="text-2xl font-black text-white">Game Configuration</h2>
+                          <h2 className="text-2xl font-black text-white">{t('apply.gameConfigTitle')}</h2>
                           <p className="text-sm text-gray-500">
-                            Configure your {GAMES.find(g => g.id === playerApplicationData.gameId)?.name} details.
+                            {t('apply.gameConfigSubtitle', {
+                              gameName: GAMES.find(g => g.id === playerApplicationData.gameId)?.name ?? ''
+                            })}
                           </p>
                         </div>
 
@@ -4320,15 +4330,15 @@ export default function App() {
                               onClick={() => setShowApplySelectionModal({
                                 show: true,
                                 type: 'RANK',
-                                title: 'Select Rank',
+                                title: t('apply.modalRankTitle'),
                                 options: ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Master']
                               })}
                               className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group active:scale-[0.98] transition-all"
                             >
                               <div className="text-left">
-                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Rank</p>
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{t('apply.fieldRank')}</p>
                                 <p className={`text-sm font-bold ${playerApplicationData.rank ? 'text-white' : 'text-gray-600'}`}>
-                                  {playerApplicationData.rank || 'Select Rank'}
+                                  {playerApplicationData.rank || t('apply.selectRank')}
                                 </p>
                               </div>
                               <ChevronRight className="w-5 h-5 text-gray-600 group-hover:translate-x-1 transition-transform" />
@@ -4340,15 +4350,15 @@ export default function App() {
                               onClick={() => setShowApplySelectionModal({
                                 show: true,
                                 type: 'MAIN',
-                                title: 'Select Position',
+                                title: t('apply.modalPositionTitle'),
                                 options: ['Top', 'Jungle', 'Mid', 'ADC', 'Support']
                               })}
                               className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group active:scale-[0.98] transition-all"
                             >
                               <div className="text-left">
-                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Main Position</p>
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{t('apply.fieldMainPosition')}</p>
                                 <p className={`text-sm font-bold ${playerApplicationData.mainPosition ? 'text-white' : 'text-gray-600'}`}>
-                                  {playerApplicationData.mainPosition || 'Select Position'}
+                                  {playerApplicationData.mainPosition || t('apply.selectPosition')}
                                 </p>
                               </div>
                               <ChevronRight className="w-5 h-5 text-gray-600 group-hover:translate-x-1 transition-transform" />
@@ -4360,15 +4370,15 @@ export default function App() {
                               onClick={() => setShowApplySelectionModal({
                                 show: true,
                                 type: 'SERVER',
-                                title: 'Select Server',
+                                title: t('apply.modalServerTitle'),
                                 options: ['NA', 'EUW', 'EUNE', 'SEA', 'KR', 'JP']
                               })}
                               className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group active:scale-[0.98] transition-all"
                             >
                               <div className="text-left">
-                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Server</p>
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{t('apply.fieldServer')}</p>
                                 <p className={`text-sm font-bold ${playerApplicationData.server ? 'text-white' : 'text-gray-600'}`}>
-                                  {playerApplicationData.server || 'Select Server'}
+                                  {playerApplicationData.server || t('apply.selectServer')}
                                 </p>
                               </div>
                               <ChevronRight className="w-5 h-5 text-gray-600 group-hover:translate-x-1 transition-transform" />
@@ -4380,15 +4390,15 @@ export default function App() {
                               onClick={() => setShowApplySelectionModal({
                                 show: true,
                                 type: 'PLATFORM',
-                                title: 'Select Platform',
+                                title: t('apply.modalPlatformTitle'),
                                 options: ['PC', 'PS4/5', 'Xbox', 'Mobile', 'Switch']
                               })}
                               className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group active:scale-[0.98] transition-all"
                             >
                               <div className="text-left">
-                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Platform</p>
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{t('apply.fieldPlatform')}</p>
                                 <p className={`text-sm font-bold ${playerApplicationData.platform ? 'text-white' : 'text-gray-600'}`}>
-                                  {playerApplicationData.platform || 'Select Platform'}
+                                  {playerApplicationData.platform || t('apply.selectPlatform')}
                                 </p>
                               </div>
                               <ChevronRight className="w-5 h-5 text-gray-600 group-hover:translate-x-1 transition-transform" />
@@ -4396,10 +4406,10 @@ export default function App() {
                           )}
 
                           <div className="space-y-3">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Style</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('apply.fieldStyle')}</p>
                             <input 
                               type="text"
-                              placeholder="e.g. Aggressive, Strategic, Chill"
+                              placeholder={t('apply.stylePlaceholder')}
                               value={playerApplicationData.style}
                               onChange={(e) => setPlayerApplicationData(prev => ({ ...prev, style: e.target.value }))}
                               className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-white font-bold placeholder:text-gray-600 focus:border-purple-500/50 outline-none transition-all"
@@ -4407,9 +4417,9 @@ export default function App() {
                           </div>
 
                           <div className="space-y-3">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Introduction</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('apply.fieldIntro')}</p>
                             <textarea 
-                              placeholder="Tell users about your skills and playstyle..."
+                              placeholder={t('apply.introPlaceholder')}
                               rows={4}
                               value={playerApplicationData.intro}
                               onChange={(e) => setPlayerApplicationData(prev => ({ ...prev, intro: e.target.value }))}
@@ -4418,7 +4428,7 @@ export default function App() {
                           </div>
 
                           <div className="space-y-3">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Game Screenshot</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('apply.fieldScreenshot')}</p>
                             <div className="space-y-3">
                               {playerApplicationData.screenshots.length > 0 ? (
                                 <div className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 relative">
@@ -4436,7 +4446,7 @@ export default function App() {
                                   className="w-full aspect-video rounded-2xl bg-white/5 border border-dashed border-white/20 flex flex-col items-center justify-center gap-3 text-gray-500 hover:bg-white/10 transition-all"
                                 >
                                   <Camera className="w-8 h-8" />
-                                  <span className="text-[10px] font-black uppercase tracking-widest">Add Game Screenshot</span>
+                                  <span className="text-[10px] font-black uppercase tracking-widest">{t('apply.addScreenshot')}</span>
                                 </button>
                               )}
                             </div>
@@ -4449,15 +4459,13 @@ export default function App() {
                     {playerApplicationStep === 3 && (
                       <div className="space-y-8">
                         <div className="space-y-2">
-                          <h2 className="text-2xl font-black text-white">Voice & Cover</h2>
-                          <p className="text-sm text-gray-500">
-                            Make your profile stand out with a voice recording and a great cover.
-                          </p>
+                          <h2 className="text-2xl font-black text-white">{t('apply.step3Title')}</h2>
+                          <p className="text-sm text-gray-500">{t('apply.step3Subtitle')}</p>
                         </div>
 
                         <div className="space-y-8">
                           <div className="space-y-4">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Voice Recording</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('apply.voiceRecording')}</p>
                             <div className="p-8 bg-white/5 border border-white/10 rounded-[32px] flex flex-col items-center gap-6">
                               <div className="w-20 h-20 rounded-full bg-purple-600/20 flex items-center justify-center relative">
                                 {isRecording && (
@@ -4486,9 +4494,9 @@ export default function App() {
                                 ) : (
                                   <>
                                     <p className="text-sm font-bold text-white">
-                                      {playerApplicationData.voiceUrl ? 'Greeting Recorded' : 'Record your greeting'}
+                                      {playerApplicationData.voiceUrl ? t('apply.voiceRecorded') : t('apply.voiceRecordPrompt')}
                                     </p>
-                                    <p className="text-[10px] text-gray-500">Max 30 seconds</p>
+                                    <p className="text-[10px] text-gray-500">{t('apply.voiceMaxSeconds')}</p>
                                   </>
                                 )}
                               </div>
@@ -4514,7 +4522,7 @@ export default function App() {
                                     }}
                                     className="w-full py-4 bg-purple-600 rounded-2xl font-black text-white text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all"
                                   >
-                                    Start Recording
+                                    {t('apply.startRecording')}
                                   </button>
                                 )}
 
@@ -4528,7 +4536,7 @@ export default function App() {
                                       }}
                                       className="flex-1 py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-gray-400 text-[10px] uppercase tracking-widest active:scale-95 transition-all"
                                     >
-                                      Cancel
+                                      {t('me.cancel')}
                                     </button>
                                     <button 
                                       onClick={() => {
@@ -4538,7 +4546,7 @@ export default function App() {
                                       }}
                                       className="flex-1 py-4 bg-green-600 rounded-2xl font-black text-white text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
                                     >
-                                      Done
+                                      {t('apply.done')}
                                     </button>
                                   </div>
                                 )}
@@ -4565,11 +4573,11 @@ export default function App() {
                                       }}
                                       className="flex-1 py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-purple-400 text-[10px] uppercase tracking-widest active:scale-95 transition-all"
                                     >
-                                      Re-record
+                                      {t('apply.reRecord')}
                                     </button>
                                     <div className="flex-1 py-4 bg-green-600/20 border border-green-500/30 rounded-2xl flex items-center justify-center gap-2">
                                       <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                      <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">Saved</span>
+                                      <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">{t('apply.saved')}</span>
                                     </div>
                                   </div>
                                 )}
@@ -4578,7 +4586,7 @@ export default function App() {
                           </div>
 
                           <div className="space-y-4">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Cover Image</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('apply.coverImage')}</p>
                             <button 
                               onClick={() => setPlayerApplicationData(prev => ({ ...prev, coverUrl: 'https://picsum.photos/seed/cover/800/1200' }))}
                               className="w-full aspect-[3/4] bg-white/5 border border-dashed border-white/20 rounded-[32px] overflow-hidden flex flex-col items-center justify-center gap-3 group relative"
@@ -4596,8 +4604,8 @@ export default function App() {
                                     <Camera className="w-6 h-6 text-gray-500" />
                                   </div>
                                   <div className="text-center">
-                                    <p className="text-xs font-bold text-white">Upload Cover</p>
-                                    <p className="text-[10px] text-gray-500">Portrait recommended</p>
+                                    <p className="text-xs font-bold text-white">{t('apply.uploadCover')}</p>
+                                    <p className="text-[10px] text-gray-500">{t('apply.coverPortraitHint')}</p>
                                   </div>
                                 </>
                               )}
@@ -4605,10 +4613,10 @@ export default function App() {
                           </div>
 
                           <div className="space-y-3">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Cover Intro</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('apply.coverIntro')}</p>
                             <input 
                               type="text"
-                              placeholder="A short catchy intro for your cover..."
+                              placeholder={t('apply.coverIntroPlaceholder')}
                               value={playerApplicationData.coverIntro}
                               onChange={(e) => setPlayerApplicationData(prev => ({ ...prev, coverIntro: e.target.value }))}
                               className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-white font-bold placeholder:text-gray-600 focus:border-purple-500/50 outline-none transition-all"
@@ -4622,18 +4630,16 @@ export default function App() {
                     {playerApplicationStep === 4 && (
                       <div className="space-y-8">
                         <div className="space-y-2">
-                          <h2 className="text-2xl font-black text-white">Service & Pricing</h2>
-                          <p className="text-sm text-gray-500">
-                            Set your service name, price, and optional promotions.
-                          </p>
+                          <h2 className="text-2xl font-black text-white">{t('apply.step4Title')}</h2>
+                          <p className="text-sm text-gray-500">{t('apply.step4Subtitle')}</p>
                         </div>
 
                         <div className="space-y-6">
                           <div className="space-y-3">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Service Name</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('apply.serviceName')}</p>
                             <input 
                               type="text"
-                              placeholder="e.g. Pro Carry Service"
+                              placeholder={t('apply.serviceNamePlaceholder')}
                               value={playerApplicationData.serviceName}
                               onChange={(e) => setPlayerApplicationData(prev => ({ ...prev, serviceName: e.target.value }))}
                               className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-white font-bold placeholder:text-gray-600 focus:border-purple-500/50 outline-none transition-all"
@@ -4642,7 +4648,7 @@ export default function App() {
 
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-3">
-                              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Price (Coins)</p>
+                              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('apply.priceCoins')}</p>
                               <input 
                                 type="number"
                                 placeholder="0"
@@ -4652,15 +4658,15 @@ export default function App() {
                               />
                             </div>
                             <div className="space-y-3">
-                              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Unit</p>
+                              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('apply.unitLabel')}</p>
                               <select 
                                 value={playerApplicationData.unit}
                                 onChange={(e) => setPlayerApplicationData(prev => ({ ...prev, unit: e.target.value }))}
                                 className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-white font-bold focus:border-purple-500/50 outline-none transition-all appearance-none"
                               >
-                                <option value="Game">Per Game</option>
-                                <option value="Hour">Per Hour</option>
-                                <option value="Round">Per Round</option>
+                                <option value="Game">{t('apply.unitPerGame')}</option>
+                                <option value="Hour">{t('apply.unitPerHour')}</option>
+                                <option value="Round">{t('apply.unitPerRound')}</option>
                               </select>
                             </div>
                           </div>
@@ -4763,9 +4769,9 @@ export default function App() {
                                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Promotion Limit</p>
                                   <div className="flex gap-2">
                                     {[
-                                      { id: 'NONE', label: 'None' },
-                                      { id: 'TIME', label: 'Time' },
-                                      { id: 'QUANTITY', label: 'Qty' }
+                                      { id: 'NONE', label: t('apply.limitNone') },
+                                      { id: 'TIME', label: t('apply.limitTime') },
+                                      { id: 'QUANTITY', label: t('apply.limitQty') }
                                     ].map((limit) => (
                                       <button
                                         key={limit.id}
@@ -4784,7 +4790,11 @@ export default function App() {
                                   {playerApplicationData.promotion.limitType !== 'NONE' && (
                                     <input 
                                       type="number"
-                                      placeholder={playerApplicationData.promotion.limitType === 'TIME' ? 'Days' : 'Quantity'}
+                                      placeholder={
+                                        playerApplicationData.promotion.limitType === 'TIME'
+                                          ? t('apply.promoPlaceholderDays')
+                                          : t('apply.promoPlaceholderQty')
+                                      }
                                       value={playerApplicationData.promotion.limitValue || ''}
                                       onChange={(e) => setPlayerApplicationData(prev => ({ 
                                         ...prev, 
@@ -4829,13 +4839,13 @@ export default function App() {
                       })()}
                       className="w-full py-5 bg-purple-600 rounded-2xl font-black text-white shadow-[0_0_40px_rgba(168,85,247,0.4)] active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all uppercase tracking-widest text-xs"
                     >
-                      Next Step
+                      {t('apply.nextStep')}
                     </button>
                   ) : (
                     <button 
                       onClick={() => {
                         setPlayerApplicationStatus('PENDING');
-                        alert('Application submitted successfully!');
+                        alert(t('apply.submittedAlert'));
                       }}
                       disabled={(() => {
                         if (!playerApplicationData.serviceName || !playerApplicationData.price) return true;
@@ -4851,7 +4861,7 @@ export default function App() {
                       })()}
                       className="w-full py-5 bg-purple-600 rounded-2xl font-black text-white shadow-[0_0_40px_rgba(168,85,247,0.4)] active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all uppercase tracking-widest text-xs"
                     >
-                      Submit Application
+                      {t('apply.submitApplication')}
                     </button>
                   )}
                 </div>
@@ -4941,13 +4951,13 @@ export default function App() {
                 <button onClick={handleBack} className="p-2 bg-white/5 rounded-xl border border-white/10">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h1 className="text-xl font-bold">Select Category</h1>
+                <h1 className="text-xl font-bold">{t('apply.categoryTitle')}</h1>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-black text-white">Service Category</h2>
-                  <p className="text-sm text-gray-500">What kind of service will you provide for {selectedGame?.name}?</p>
+                  <h2 className="text-2xl font-black text-white">{t('apply.categoryHeading')}</h2>
+                  <p className="text-sm text-gray-500">{t('apply.categorySubtitle', { gameName: selectedGame?.name ?? '' })}</p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
@@ -4985,23 +4995,23 @@ export default function App() {
                 <button onClick={handleBack} className="p-2 bg-white/5 rounded-xl border border-white/10">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h1 className="text-xl font-bold">Service Details</h1>
+                <h1 className="text-xl font-bold">{t('apply.detailsTitle')}</h1>
               </div>
 
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">Rank / Level</p>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">{t('apply.detailsRankLevel')}</p>
                   <input 
                     type="text" 
                     value={applicationDetails.rank}
                     onChange={(e) => setApplicationDetails(prev => ({ ...prev, rank: e.target.value }))}
-                    placeholder="e.g. Diamond IV, Level 100"
+                    placeholder={t('apply.detailsRankPlaceholder')}
                     className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-white font-bold placeholder:text-gray-600 focus:border-purple-500/50 outline-none transition-all"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">Platform</p>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">{t('apply.detailsPlatform')}</p>
                   <div className="grid grid-cols-3 gap-2">
                     {['PC', 'Mobile', 'Console'].map(p => (
                       <button
@@ -5020,19 +5030,19 @@ export default function App() {
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">Style</p>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">{t('apply.detailsStyle')}</p>
                   <input 
                     type="text" 
                     value={applicationDetails.style}
                     onChange={(e) => setApplicationDetails(prev => ({ ...prev, style: e.target.value }))}
-                    placeholder="e.g. Aggressive, Chill, Pro"
+                    placeholder={t('apply.detailsStylePlaceholder')}
                     className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-white font-bold placeholder:text-gray-600 focus:border-purple-500/50 outline-none transition-all"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">Price (Coins/hr)</p>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">{t('apply.detailsPricePerHour')}</p>
                     <div className="relative">
                       <input 
                         type="number" 
@@ -5047,7 +5057,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">Discount (%)</p>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">{t('apply.detailsDiscount')}</p>
                     <input 
                       type="number" 
                       value={applicationDetails.discount}
@@ -5066,7 +5076,7 @@ export default function App() {
                 }}
                 className="w-full py-5 bg-purple-600 rounded-2xl font-black text-white shadow-[0_0_40px_rgba(168,85,247,0.4)] active:scale-95 transition-all uppercase tracking-widest text-xs"
               >
-                Submit Application
+                {t('apply.detailsSubmit')}
               </button>
             </motion.div>
           )}
@@ -5083,33 +5093,33 @@ export default function App() {
                 <button onClick={handleBack} className="p-2 bg-white/5 rounded-xl border border-white/10 relative z-10">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h1 className="text-xl font-bold absolute left-1/2 -translate-x-1/2">Settings</h1>
+                <h1 className="text-xl font-bold absolute left-1/2 -translate-x-1/2">{t('settings.title')}</h1>
                 <div className="w-10" />
               </div>
 
               <div className="space-y-8">
                 <div className="space-y-4">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">Account</p>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">{t('settings.accountSection')}</p>
                   <div className="space-y-1">
                     <button 
                       onClick={() => setCurrentView('SETTINGS_EDIT_PROFILE')}
                       className="w-full flex items-center justify-between p-5 hover:bg-white/5 rounded-2xl transition-all group"
                     >
-                      <span className="font-bold text-gray-300">Edit Profile</span>
+                      <span className="font-bold text-gray-300">{t('settings.editProfile')}</span>
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
                     </button>
                     <button 
                       onClick={() => setCurrentView('SETTINGS_CHANGE_PASSWORD')}
                       className="w-full flex items-center justify-between p-5 hover:bg-white/5 rounded-2xl transition-all group"
                     >
-                      <span className="font-bold text-gray-300">Change Password</span>
+                      <span className="font-bold text-gray-300">{t('settings.changePassword')}</span>
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
                     </button>
                     <button 
                       onClick={() => setCurrentView('SETTINGS_LINKED_ACCOUNTS')}
                       className="w-full flex items-center justify-between p-5 hover:bg-white/5 rounded-2xl transition-all group"
                     >
-                      <span className="font-bold text-gray-300">Linked Accounts</span>
+                      <span className="font-bold text-gray-300">{t('settings.linkedAccounts')}</span>
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
                           <MessageSquare className="w-3 h-3 text-blue-400" />
@@ -5121,20 +5131,20 @@ export default function App() {
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">General</p>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">{t('settings.general')}</p>
                   <div className="space-y-1">
                     <button 
                       onClick={() => setCurrentView('SETTINGS_LANGUAGE')}
                       className="w-full flex items-center justify-between p-5 hover:bg-white/5 rounded-2xl transition-all group"
                     >
-                      <span className="font-bold text-gray-300">Language</span>
+                      <span className="font-bold text-gray-300">{t('settings.language')}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-purple-400">{selectedLanguage}</span>
+                        <span className="text-xs font-bold text-purple-400">{getLocaleLabel(locale)}</span>
                         <ChevronRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
                       </div>
                     </button>
                     <div className="w-full flex items-center justify-between p-5">
-                      <span className="font-bold text-gray-300">Push Notifications</span>
+                      <span className="font-bold text-gray-300">{t('settings.pushNotifications')}</span>
                       <button 
                         onClick={() => setPushNotificationsEnabled(!pushNotificationsEnabled)}
                         className={`w-10 h-5 rounded-full relative transition-colors ${pushNotificationsEnabled ? 'bg-purple-600' : 'bg-white/10'}`}
@@ -5148,11 +5158,11 @@ export default function App() {
                     <button 
                       onClick={() => {
                         setCacheSize('0 B');
-                        alert('Cache cleared successfully!');
+                        alert(t('settings.cacheCleared'));
                       }}
                       className="w-full flex items-center justify-between p-5 hover:bg-white/5 rounded-2xl transition-all group"
                     >
-                      <span className="font-bold text-gray-300">Clear Cache</span>
+                      <span className="font-bold text-gray-300">{t('settings.clearCache')}</span>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-gray-600">{cacheSize}</span>
                         <ChevronRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
@@ -5162,25 +5172,25 @@ export default function App() {
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">About</p>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">{t('settings.about')}</p>
                   <div className="space-y-1">
                     <button 
                       onClick={() => setCurrentView('SETTINGS_PRIVACY')}
                       className="w-full flex items-center justify-between p-5 hover:bg-white/5 rounded-2xl transition-all group"
                     >
-                      <span className="font-bold text-gray-300">Privacy Policy</span>
+                      <span className="font-bold text-gray-300">{t('settings.privacyPolicy')}</span>
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
                     </button>
                     <button 
                       onClick={() => setCurrentView('SETTINGS_TERMS')}
                       className="w-full flex items-center justify-between p-5 hover:bg-white/5 rounded-2xl transition-all group"
                     >
-                      <span className="font-bold text-gray-300">Terms of Service</span>
+                      <span className="font-bold text-gray-300">{t('settings.termsOfService')}</span>
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
                     </button>
                     <div className="w-full flex items-center justify-between p-5">
-                      <span className="font-bold text-gray-300">Version</span>
-                      <span className="text-[10px] font-bold text-gray-600">v1.2.0 (MVP)</span>
+                      <span className="font-bold text-gray-300">{t('settings.versionLabel')}</span>
+                      <span className="text-[10px] font-bold text-gray-600">v{PRODUCT_SEMVER}</span>
                     </div>
                   </div>
                 </div>
@@ -5191,7 +5201,7 @@ export default function App() {
                     className="w-full flex items-center justify-center gap-2 p-5 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-400 font-bold hover:bg-red-500/20 active:scale-[0.98] transition-all"
                   >
                     <LogOut className="w-5 h-5" />
-                    <span>Logout Account</span>
+                    <span>{t('settings.logout')}</span>
                   </button>
                 </div>
               </div>
@@ -5339,23 +5349,23 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <SettingsSubPage title="Language" onBack={() => setCurrentView('SETTINGS')}>
+              <SettingsSubPage title={t('settings.language')} onBack={() => setCurrentView('SETTINGS')}>
                 <div className="space-y-2 pt-4">
-                  {['English', 'Chinese (Simplified)', 'Chinese (Traditional)', 'Japanese', 'Korean', 'Spanish', 'French'].map(lang => (
+                  {supportedLocales.map(localeOption => (
                     <button 
-                      key={lang}
+                      key={localeOption}
                       onClick={() => {
-                        setSelectedLanguage(lang);
+                        setLocale(localeOption);
                         setCurrentView('SETTINGS');
                       }}
                       className={`w-full p-5 flex items-center justify-between rounded-2xl border transition-all ${
-                        selectedLanguage === lang 
+                        locale === localeOption 
                           ? 'bg-purple-600/10 border-purple-500/50 text-white' 
                           : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
                       }`}
                     >
-                      <span className="font-bold">{lang}</span>
-                      {selectedLanguage === lang && <CheckCircle2 className="w-5 h-5 text-purple-400" />}
+                      <span className="font-bold">{getLocaleLabel(localeOption)}</span>
+                      {locale === localeOption && <CheckCircle2 className="w-5 h-5 text-purple-400" />}
                     </button>
                   ))}
                 </div>
@@ -5597,7 +5607,7 @@ export default function App() {
                 <button onClick={handleBack} className="p-2 bg-white/5 rounded-xl border border-white/10">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h1 className="text-xl font-bold">Confirm Order</h1>
+                <h1 className="text-xl font-bold">{t('order.confirmTitle')}</h1>
               </div>
 
               {/* Service Info */}
@@ -5620,7 +5630,7 @@ export default function App() {
 
               {/* Service Types */}
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Service Type</h3>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">{t('order.serviceType')}</h3>
                 <button 
                   onClick={() => setShowServiceTypeModal(true)}
                   className="w-full flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 active:scale-[0.98] transition-all text-left"
@@ -5638,26 +5648,26 @@ export default function App() {
               {/* Quantity */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
-                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Quantity</h3>
+                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t('order.quantity')}</h3>
                   <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
                     {(() => {
                       const unit = selectedVariant.unit.toLowerCase();
                       if (unit.includes('min')) {
                         const mins = parseInt(unit) || 0;
-                        return `Total: ${mins * orderQuantity}min`;
+                        return t('order.totalMinutes', { n: mins * orderQuantity });
                       }
                       if (unit.includes('game')) {
-                        return `Total: ${orderQuantity} Games`;
+                        return t('order.totalGames', { n: orderQuantity });
                       }
                       if (unit.includes('time')) {
-                        return `Total: ${orderQuantity} Times`;
+                        return t('order.totalTimes', { n: orderQuantity });
                       }
-                      return `Total: ${orderQuantity} ${selectedVariant.unit}(s)`;
+                      return t('order.totalUnits', { n: orderQuantity, unit: selectedVariant.unit });
                     })()}
                   </div>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
-                  <span className="text-sm font-bold text-gray-300">Select Units</span>
+                  <span className="text-sm font-bold text-gray-300">{t('order.selectUnits')}</span>
                   <div className="flex items-center gap-6">
                     <button 
                       onClick={() => setOrderQuantity(Math.max(1, orderQuantity - 1))}
@@ -5678,10 +5688,10 @@ export default function App() {
 
               {/* Price Summary */}
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Price Summary</h3>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">{t('order.priceSummary')}</h3>
                 <GlassCard className="p-5 space-y-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Subtotal</span>
+                    <span className="text-gray-400">{t('order.subtotal')}</span>
                     <span className="font-bold flex items-center gap-1">
                       {selectedVariant.price * orderQuantity} <CoinIcon />
                     </span>
@@ -5693,7 +5703,7 @@ export default function App() {
                       availableCoupons.length > 0 ? 'hover:opacity-70 active:scale-[0.98]' : 'opacity-60 cursor-not-allowed'
                     }`}
                   >
-                    <span className="text-gray-400">Coupon</span>
+                    <span className="text-gray-400">{t('order.coupon')}</span>
                     <div className="flex items-center gap-1.5">
                       <span className={`font-bold flex items-center gap-1 ${selectedCoupon ? 'text-green-400' : 'text-gray-500'}`}>
                         {selectedCoupon ? (
@@ -5702,20 +5712,20 @@ export default function App() {
                               ? selectedCoupon.discount 
                               : Math.floor((selectedVariant.price * orderQuantity) * (selectedCoupon.discount / 100))} <CoinIcon />
                           </>
-                        ) : (availableCoupons.length > 0 ? 'Select coupon' : 'No Available Coupons')}
+                        ) : (availableCoupons.length > 0 ? t('order.selectCoupon') : t('order.noCoupons'))}
                       </span>
                       {availableCoupons.length > 0 && <ChevronRight className="w-3.5 h-3.5 text-gray-500" />}
                     </div>
                   </button>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Discount</span>
+                    <span className="text-gray-400">{t('order.discount')}</span>
                     <span className="font-bold text-green-400 flex items-center gap-1">
                       -{selectedCoupon ? (selectedCoupon.type === 'FIXED' ? selectedCoupon.discount : Math.floor((selectedVariant.price * orderQuantity) * (selectedCoupon.discount / 100))) : 0} <CoinIcon />
                     </span>
                   </div>
                   <div className="h-px bg-white/10" />
                   <div className="flex justify-between items-center">
-                    <span className="font-bold">Final Price</span>
+                    <span className="font-bold">{t('order.finalPrice')}</span>
                     <span className="text-2xl font-bold text-purple-400 flex items-center gap-1.5">
                       {(() => {
                         const subtotal = selectedVariant.price * orderQuantity;
@@ -5779,7 +5789,7 @@ export default function App() {
                     }}
                     className="w-full py-4 rounded-2xl bg-purple-600 font-bold text-lg shadow-[0_0_30px_rgba(168,85,247,0.4)] active:scale-95 transition-all text-white"
                   >
-                    Pay & Start
+                    {t('order.payStart')}
                   </button>
                 </div>
               </div>
@@ -5803,12 +5813,12 @@ export default function App() {
                       className="fixed bottom-0 left-0 right-0 bg-[#1a0b2e] rounded-t-[32px] border-t border-white/10 z-[101] max-w-md mx-auto p-6 pb-12 space-y-6"
                     >
                       <div className="flex justify-between items-center">
-                        <h2 className="text-xl font-bold">Select Coupon</h2>
+                        <h2 className="text-xl font-bold">{t('order.couponModalTitle')}</h2>
                         <button 
                           onClick={() => setShowCouponModal(false)}
                           className="text-gray-500 hover:text-white font-bold"
                         >
-                          Close
+                          {t('order.close')}
                         </button>
                       </div>
 
@@ -5824,7 +5834,7 @@ export default function App() {
                               : 'bg-white/5 border-white/10'
                           }`}
                         >
-                          <span className="font-bold">Don't use coupon</span>
+                          <span className="font-bold">{t('order.noCouponOption')}</span>
                           {selectedCoupon === null && <CheckCircle2 className="w-5 h-5 text-purple-400" />}
                         </button>
 
@@ -7139,7 +7149,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Trophy className="w-5 h-5 text-yellow-400" />
-                    <h3 className="text-sm font-black text-white uppercase tracking-widest">Top 10 Rankings</h3>
+                    <h3 className="text-sm font-black text-white uppercase tracking-widest">{t('ranking.top10ModalTitle')}</h3>
                   </div>
                   <button onClick={() => setShowRankingModal(false)} className="p-2 rounded-lg hover:bg-white/10 text-gray-300">
                     <X className="w-4 h-4" />
@@ -7150,36 +7160,42 @@ export default function App() {
                     <div key={`modal_${item.companionId}`} className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-bold text-white">#{item.rank} {item.gameName}</p>
-                        <p className="text-xs font-bold text-purple-300">Score {item.rankingScore.toFixed(2)}</p>
+                        <p className="text-xs font-bold text-purple-300">{t('ranking.modalScoreLabel', { score: item.rankingScore.toFixed(2) })}</p>
                       </div>
                       <p className="text-[10px] text-gray-400 mt-1">
-                        {item.poolTag} · ★ {item.avgRating.toFixed(2)} · {item.completedOrderCount} completed · {Math.round(item.completionRate * 100)}% completion
+                        {t('ranking.modalDetailLine', {
+                          poolTag: item.poolTag,
+                          rating: item.avgRating.toFixed(2),
+                          completed: item.completedOrderCount,
+                          completionPct: Math.round(item.completionRate * 100)
+                        })}
                       </p>
                       <button
                         onClick={() => setExpandedRankingId(prev => prev === item.companionId ? null : item.companionId)}
                         className="mt-2 text-[10px] font-bold text-blue-300 hover:text-blue-200 transition-colors"
                       >
-                        {expandedRankingId === item.companionId ? 'Hide score breakdown' : 'Show score breakdown'}
+                        {expandedRankingId === item.companionId ? t('ranking.hideBreakdown') : t('ranking.showBreakdown')}
                       </button>
                       {expandedRankingId === item.companionId && (
                         <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px]">
                           <div className="rounded-lg bg-blue-500/10 border border-blue-400/20 px-2 py-1 text-blue-200 col-span-2">
-                            Formula: <span className="font-bold">score = quality + volume + fulfillment + revenue - riskPenalty</span>
+                            {t('ranking.formulaLabel')}{' '}
+                            <span className="font-bold">{t('ranking.formulaExpression')}</span>
                           </div>
                           <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-gray-300">
-                            Quality: <span className="text-white font-bold">{item.scoreBreakdown.quality.toFixed(2)}</span>
+                            {t('ranking.breakdownQuality')} <span className="text-white font-bold">{item.scoreBreakdown.quality.toFixed(2)}</span>
                           </div>
                           <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-gray-300">
-                            Volume: <span className="text-white font-bold">{item.scoreBreakdown.volume.toFixed(2)}</span>
+                            {t('ranking.breakdownVolume')} <span className="text-white font-bold">{item.scoreBreakdown.volume.toFixed(2)}</span>
                           </div>
                           <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-gray-300">
-                            Fulfillment: <span className="text-white font-bold">{item.scoreBreakdown.fulfillment.toFixed(2)}</span>
+                            {t('ranking.breakdownFulfillment')} <span className="text-white font-bold">{item.scoreBreakdown.fulfillment.toFixed(2)}</span>
                           </div>
                           <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-gray-300">
-                            Revenue: <span className="text-white font-bold">{item.scoreBreakdown.revenue.toFixed(2)}</span>
+                            {t('ranking.breakdownRevenue')} <span className="text-white font-bold">{item.scoreBreakdown.revenue.toFixed(2)}</span>
                           </div>
                           <div className="rounded-lg bg-red-500/10 border border-red-400/20 px-2 py-1 text-red-200 col-span-2">
-                            Risk Penalty: <span className="font-bold">{item.scoreBreakdown.riskPenalty.toFixed(2)}</span>
+                            {t('ranking.breakdownRisk')} <span className="font-bold">{item.scoreBreakdown.riskPenalty.toFixed(2)}</span>
                           </div>
                         </div>
                       )}
@@ -7194,11 +7210,16 @@ export default function App() {
       {/* Bottom Navigation */}
       {(currentView === 'HOME' || currentView === 'COMMUNITY' || currentView === 'CATEGORY_SERVICES' || currentView === 'IM' || currentView === 'ME') && (
         <nav className="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none">
-          <div className="bg-[#1a0b2e] border-t border-white/5 px-4 py-1 flex justify-around items-center shadow-2xl pointer-events-auto">
-            <NavButton icon={Home} active={currentView === 'HOME' || currentView === 'CATEGORY_SERVICES'} onClick={() => navigateTo('HOME')} />
-            <NavButton icon={Users} active={currentView === 'COMMUNITY'} onClick={() => navigateTo('COMMUNITY')} />
-            <NavButton icon={MessageSquare} active={currentView === 'IM'} onClick={() => navigateTo('IM')} />
-            <NavButton icon={User} active={currentView === 'ME'} onClick={() => navigateTo('ME')} />
+          <div className="bg-[#1a0b2e] border-t border-white/5 px-2 py-2 flex justify-around items-end shadow-2xl pointer-events-auto">
+            <NavButton
+              icon={Home}
+              label={t('nav.home')}
+              active={currentView === 'HOME' || currentView === 'CATEGORY_SERVICES'}
+              onClick={() => navigateTo('HOME')}
+            />
+            <NavButton icon={Users} label={t('nav.community')} active={currentView === 'COMMUNITY'} onClick={() => navigateTo('COMMUNITY')} />
+            <NavButton icon={MessageSquare} label={t('nav.im')} active={currentView === 'IM'} onClick={() => navigateTo('IM')} />
+            <NavButton icon={User} label={t('nav.me')} active={currentView === 'ME'} onClick={() => navigateTo('ME')} />
           </div>
         </nav>
       )}
@@ -7207,15 +7228,33 @@ export default function App() {
   );
 }
 
-const NavButton = ({ icon: Icon, active, onClick }: { icon: any, active?: boolean, onClick?: () => void }) => (
-  <button 
+const NavButton = ({
+  icon: Icon,
+  label,
+  active,
+  onClick
+}: {
+  icon: any;
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+}) => (
+  <button
+    type="button"
     onClick={onClick}
-    className={`p-2.5 rounded-full transition-all duration-300 ${
-      active 
-        ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)] scale-105' 
-        : 'text-gray-500 hover:text-purple-400'
+    className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] rounded-2xl transition-all duration-300 ${
+      active ? 'text-white' : 'text-gray-500 hover:text-purple-400'
     }`}
   >
-    <Icon className="w-5 h-5" fill={active ? "currentColor" : "none"} />
+    <span
+      className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 ${
+        active
+          ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)] scale-105'
+          : 'bg-transparent'
+      }`}
+    >
+      <Icon className="w-5 h-5" fill={active ? 'currentColor' : 'none'} />
+    </span>
+    <span className="text-[9px] font-bold leading-tight text-center max-w-[64px] truncate">{label}</span>
   </button>
 );

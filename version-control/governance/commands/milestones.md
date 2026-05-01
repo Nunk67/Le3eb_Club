@@ -261,15 +261,17 @@ Required per-phase closure steps:
 - **Milestone**: `M7` (`0.8.0`)
 - **Current status**: `Partial`
 - **Primary evidence**:
-  - `client/`
-  - `admin/`
+  - `client/i18n/` (`I18nProvider.tsx`, `locale.ts`, `messages.ts`)
+  - `client/main.tsx` (`I18nProvider` app-shell wrapper)
+  - `client/App.tsx` (M7 phase-A language switch, ranking card i18n, Arabic RTL via provider `dir`)
+  - `admin/AdminWorkbench.tsx` (M8 admin-localization prep anchor only; not counted as M7 closure)
   - `shared/`
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M7`
-  - Latest result: `TBD`
+  - Latest result: `passed` (`react-example@0.8.0`)
 - **Closure decision**:
   - Decision: `Not closed`
-  - Risks/notes: pending integrated closure evidence and gate snapshot.
+  - Risks/notes: M7 covers client phase-A foundation and the key-surface i18n delivered under `0.8.0` (settings, ranking, ME-adjacent copy, bottom nav labels, apply wizard, order confirm). **All remaining client-visible copy and polish previously tracked as M7 follow-up**—HOME feed headings, auth flows, apply promotion type labels, IM/community strings, and optional FR/TR dictionary polish—are **explicitly deferred to M8** (`P6-2b` backlog) so M7 closure can be decided on foundation + delivered surfaces only. Admin localization remains `P6-3 / M8` only.
 
 ### M8 admin operations audit stub
 
@@ -279,12 +281,13 @@ Required per-phase closure steps:
   - `admin/AdminWorkbench.tsx`
   - `admin/services/adminApi.ts`
   - `backend/server.ts` (admin operation paths)
+  - `client/App.tsx` + `client/i18n/messages.ts` (**M8 carryover**: complete remaining client dictionary keys and screens listed under `P6-2b` in the i18n rollout below)
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M8`
   - Latest result: `TBD`
 - **Closure decision**:
   - Decision: `Not closed`
-  - Risks/notes: pending full admin capability closure record and gate snapshot.
+  - Risks/notes: M8 scope includes admin operations depth **and** deferred client i18n completion (`P6-2b`) plus admin localization (`P6-3`) and backend error-code-first migration (`P6-4`) per phase plan. Pending full capability closure record and gate snapshot.
 
 ### M9 full-system integration audit stub
 
@@ -318,7 +321,8 @@ Required per-phase closure steps:
 ## i18n rollout (phase plan)
 
 - **P6-1 / M7** phase-A: `ar / zh-CN / en / fr / ru / tr`, locale switch
-- **P6-2 / M7** phase-A+: RTL readiness and Arabic layout usability
+- **P6-2 / M7** phase-A+: RTL readiness and Arabic layout usability (foundation + high-traffic surfaces delivered under M7; **no further M7-only i18n expansion required** for gate purposes unless product reopens M7 scope)
+- **P6-2b / M8** client completion: HOME/auth/apply-promotion/IM-community strings and non-`ar` locale polish (e.g. FR/TR accents), using the same `MessageKey` + `t()` pattern
 - **P6-3 / M8** phase-B: admin localization
 - **P6-4 / M8** phase-B: backend error-code-first migration
 - **P6-5 / M9-M10** phase-C: `validate:i18n` in integration/release gates

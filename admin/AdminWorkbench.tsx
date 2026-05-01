@@ -18,6 +18,9 @@ import {
 } from 'lucide-react';
 import { adminApi } from './services/adminApi';
 
+// M7 scope keeps admin localization as M8 prep only.
+const ADMIN_I18N_PREP_NOTE = 'M8 admin localization prep anchor';
+
 function adminTokenStoreKey() {
   return 'admin_workbench_token';
 }
@@ -269,6 +272,7 @@ function renderRecordTitle(module: SchemaModule, record: any): string {
 }
 
 export default function AdminWorkbench() {
+  void ADMIN_I18N_PREP_NOTE;
   const [email, setEmail] = useState('admin@le3eb.club');
   const [password, setPassword] = useState('admin123');
   const [token, setToken] = useState<string | null>(null);

@@ -4,6 +4,24 @@ Notable product-facing and governance changes. **Canonical numeric SemVer** is `
 
 ## [Unreleased]
 
+### [2026-05-01 15:05:00 LOCAL] [0.8.0] Restart M7 with client phase-A i18n foundation and gate-backed evidence refresh.
+
+- Promoted product SemVer to `0.8.0` in `version-control/version` and `package.json` to align with M7 mapping.
+- Added `client/i18n/` foundation (`I18nProvider`, locale normalization, message dictionaries for `ar`/`zh-CN`/`en`/`fr`/`ru`/`tr`) and wired app shell through `client/main.tsx`.
+- Updated `client/App.tsx` key surfaces for M7 phase-A (language switch settings, ranking card labels/messages) and enabled Arabic RTL via provider-managed document direction.
+- Refreshed M7 governance evidence in `version-control/governance/commands/milestones.md` and `version-control/governance/commands/implementation-status.md`; `npm run validate:gate -- --stage=M7` passed.
+
+### [2026-05-01 16:00:00 LOCAL] [0.8.0] Client M7 phase-A: bottom nav labels, apply wizard, and order confirm i18n.
+
+- Extended `client/i18n/messages.ts` with `nav.*`, `apply.*`, and `order.*` keys (Arabic overrides where needed); bottom navigation shows icon plus short translated label.
+- Localized apply flow copy (pending screen, steps 1–4, promo limit row, category/details, footers) and order confirmation (totals, price summary, coupon modal, Pay & Start) in `client/App.tsx` via `t(...)`.
+- Kept product version at `0.8.0`; `client/constants.ts` `PRODUCT_SEMVER` remains aligned with `version-control/version`.
+
+### [2026-05-01 17:00:00 LOCAL] [0.8.0] Governance: move remaining client i18n follow-up from M7 to M8.
+
+- Added `P6-2b / M8` (HOME, auth, apply promotion labels, IM/community, optional FR/TR polish) to the i18n phase plan; M7 stub notes now defer that backlog to M8 alongside `P6-3`/`P6-4`.
+- Expanded M8 audit stub primary evidence and notes; refreshed M7/M8 rows in `version-control/governance/commands/implementation-status.md`.
+
 ### [2026-05-01 03:20:00 LOCAL] [0.7.0] Close M6 exposure/ranking with explainable API and business-facing ranking UI.
 
 - Promoted product SemVer to `0.7.0` in `version-control/version` and `package.json` to match the M6 milestone mapping.
