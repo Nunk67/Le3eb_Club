@@ -17,6 +17,8 @@ import {
   BarChart3
 } from 'lucide-react';
 import { adminApi } from './services/adminApi';
+import { useI18n } from '../client/i18n/I18nProvider';
+import type { MessageKey } from '../client/i18n/messages';
 
 // M7 scope keeps admin localization as M8 prep only.
 const ADMIN_I18N_PREP_NOTE = 'M8 admin localization prep anchor';
@@ -93,32 +95,32 @@ const MODULES: SchemaModule[] = [
   }
 ];
 
-const NAV_ITEMS: Array<{ id: NavId; label: string; icon: typeof LayoutDashboard }> = [
-  { id: 'dashboard', label: '仪表盘', icon: LayoutDashboard },
-  { id: 'users', label: '用户管理', icon: Users },
-  { id: 'withdrawals', label: '提现审核', icon: Banknote },
-  { id: 'reports', label: '举报审核', icon: Flag },
-  { id: 'data', label: '数据报表', icon: BarChart3 },
-  { id: 'companions', label: '陪玩审核', icon: Gamepad2 },
-  { id: 'orders', label: '订单管理', icon: ShoppingBag },
-  { id: 'reviews', label: '评价审核', icon: Star },
-  { id: 'risks', label: '风控事件', icon: ShieldAlert },
-  { id: 'finance', label: '财务对账', icon: Wallet },
-  { id: 'audit', label: '审计日志', icon: ScrollText }
+const NAV_ITEMS: Array<{ id: NavId; labelKey: MessageKey; icon: typeof LayoutDashboard }> = [
+  { id: 'dashboard', labelKey: 'admin.nav.dashboard', icon: LayoutDashboard },
+  { id: 'users', labelKey: 'admin.nav.users', icon: Users },
+  { id: 'withdrawals', labelKey: 'admin.nav.withdrawals', icon: Banknote },
+  { id: 'reports', labelKey: 'admin.nav.reports', icon: Flag },
+  { id: 'data', labelKey: 'admin.nav.data', icon: BarChart3 },
+  { id: 'companions', labelKey: 'admin.nav.companions', icon: Gamepad2 },
+  { id: 'orders', labelKey: 'admin.nav.orders', icon: ShoppingBag },
+  { id: 'reviews', labelKey: 'admin.nav.reviews', icon: Star },
+  { id: 'risks', labelKey: 'admin.nav.risks', icon: ShieldAlert },
+  { id: 'finance', labelKey: 'admin.nav.finance', icon: Wallet },
+  { id: 'audit', labelKey: 'admin.nav.audit', icon: ScrollText }
 ];
 
-const NAV_TITLE: Record<NavId, string> = {
-  dashboard: '仪表盘',
-  users: '用户管理',
-  withdrawals: '提现审核',
-  reports: '举报审核',
-  data: '数据报表',
-  companions: '陪玩审核',
-  orders: '订单管理',
-  reviews: '评价审核',
-  risks: '风控事件',
-  finance: '财务对账',
-  audit: '审计日志'
+const NAV_TITLE_KEY: Record<NavId, MessageKey> = {
+  dashboard: 'admin.nav.dashboard',
+  users: 'admin.nav.users',
+  withdrawals: 'admin.nav.withdrawals',
+  reports: 'admin.nav.reports',
+  data: 'admin.nav.data',
+  companions: 'admin.nav.companions',
+  orders: 'admin.nav.orders',
+  reviews: 'admin.nav.reviews',
+  risks: 'admin.nav.risks',
+  finance: 'admin.nav.finance',
+  audit: 'admin.nav.audit'
 };
 
 const cardClass = 'bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.25)]';
@@ -273,10 +275,11 @@ function renderRecordTitle(module: SchemaModule, record: any): string {
 
 export default function AdminWorkbench() {
   void ADMIN_I18N_PREP_NOTE;
+  const { t } = useI18n();
   const [email, setEmail] = useState('admin@le3eb.club');
   const [password, setPassword] = useState('admin123');
   const [token, setToken] = useState<string | null>(null);
-  const [status, setStatus] = useState('就绪');
+  const [status, setStatus] = useState(t('admin.status.ready'));
   const [dashboard, setDashboard] = useState<any>(null);
   const [companions, setCompanions] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -363,7 +366,7 @@ export default function AdminWorkbench() {
       localStorage.removeItem(adminTokenStoreKey());
       setToken(null);
       setSessionToken(null);
-      setStatus('会话已过期，请重新登录');
+      setStatus(t('admin.status.sessionExpired'));
     });
   }, []);
 
@@ -415,7 +418,7 @@ export default function AdminWorkbench() {
     adminApi
       .listOperationsUsers(token, { q: userListQ || undefined, status: userListStatus || undefined, page: 1, pageSize: 40 })
       .then(r => setOpsUsers(r.items || []))
-      .catch((e: Error) => setStatus(e.message));
+      .catch((e: Error) => setStatus(e.message || t('admin.status.operationFailed')));
   }, [token, activeNav, userListQ, userListStatus]);
 
   useEffect(() => {
@@ -423,7 +426,7 @@ export default function AdminWorkbench() {
     adminApi
       .listWithdrawals(token, { status: wdStatusFilter || undefined, page: 1, pageSize: 40 })
       .then(r => setWithdrawalItems(r.items || []))
-      .catch((e: Error) => setStatus(e.message));
+      .catch((e: Error) => setStatus(e.message || t('admin.status.operationFailed')));
   }, [token, activeNav, wdStatusFilter]);
 
   useEffect(() => {
@@ -431,7 +434,7 @@ export default function AdminWorkbench() {
     adminApi
       .listModerationReports(token, { status: repStatusFilter || undefined, page: 1, pageSize: 40 })
       .then(r => setReportItems(r.items || []))
-      .catch((e: Error) => setStatus(e.message));
+      .catch((e: Error) => setStatus(e.message || t('admin.status.operationFailed')));
   }, [token, activeNav, repStatusFilter]);
 
   useEffect(() => {
@@ -458,7 +461,7 @@ export default function AdminWorkbench() {
           setDataRechargeRisk(r.items || []);
         }
       } catch (e: any) {
-        setStatus(e?.message || '数据报表加载失败');
+        setStatus(e?.message || t('admin.status.dataReportLoadFailed'));
       }
     };
     void load();
@@ -466,7 +469,7 @@ export default function AdminWorkbench() {
 
   const onLogin = async (e: FormEvent) => {
     e.preventDefault();
-    setStatus('正在登录…');
+    setStatus(t('admin.status.loggingIn'));
     try {
       const result = await adminApi.login(email, password);
       setToken(result.token);
@@ -474,12 +477,12 @@ export default function AdminWorkbench() {
       localStorage.setItem(adminTokenStoreKey(), result.token);
       try {
         await loadAll(result.token);
-        setStatus('已就绪');
+        setStatus(t('admin.status.readyAfterLogin'));
       } catch (loadErr) {
-        setStatus(`已登录，但仪表盘加载失败：${(loadErr as Error).message}`);
+        setStatus(t('admin.status.loginDashboardLoadFailed', { message: (loadErr as Error).message }));
       }
     } catch (error) {
-      setStatus((error as Error).message);
+      setStatus((error as Error).message || t('admin.status.operationFailed'));
     }
   };
 
@@ -489,9 +492,9 @@ export default function AdminWorkbench() {
     try {
       await fn();
       await loadAll(token);
-      setStatus(`${label} · 已完成`);
+      setStatus(t('admin.status.runCompleted', { label }));
     } catch (error) {
-      setStatus((error as Error).message);
+      setStatus((error as Error).message || t('admin.status.operationFailed'));
     }
   };
   const onLogout = async () => {
@@ -513,7 +516,7 @@ export default function AdminWorkbench() {
     setAuditLogs([]);
     setFinance(null);
     setAuditReport(null);
-    setStatus('已退出登录');
+    setStatus(t('admin.status.loggedOut'));
   };
 
   const recordsMap = useMemo(() => ({ companions, orders, reviews, risks }), [companions, orders, reviews, risks]);
@@ -646,7 +649,7 @@ export default function AdminWorkbench() {
               {module.key === 'risks' && (
                 <button
                   className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-[10px]"
-                  onClick={() => run('处理风控事件', () => adminApi.resolveRiskEvent(token!, record.id))}
+                  onClick={() => run(t('admin.ops.resolveRiskEvent'), () => adminApi.resolveRiskEvent(token!, record.id))}
                 >
                   标记已处理
                 </button>
@@ -717,7 +720,7 @@ export default function AdminWorkbench() {
                   {module.key === 'risks' && (
                     <button
                       className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-purple-200"
-                      onClick={() => run('处理风控事件', () => adminApi.resolveRiskEvent(token!, record.id))}
+                      onClick={() => run(t('admin.ops.resolveRiskEvent'), () => adminApi.resolveRiskEvent(token!, record.id))}
                     >
                       标记已处理
                     </button>
@@ -737,25 +740,25 @@ export default function AdminWorkbench() {
         <div className="max-w-xl w-full bg-white/5 border border-white/10 rounded-3xl p-8 space-y-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(168,85,247,0.12)]">
           <div className="space-y-2">
             <p className="text-[10px] uppercase tracking-[0.35em] text-purple-300/80 font-bold">Le3eb Admin</p>
-            <h1 className="text-3xl font-black tracking-tight">管理后台登录</h1>
-            <p className="text-sm text-gray-400">鉴权、审核、风控、财务与审计的统一入口。</p>
+            <h1 className="text-3xl font-black tracking-tight">{t('admin.login.title')}</h1>
+            <p className="text-sm text-gray-400">{t('admin.login.subtitle')}</p>
           </div>
           <form onSubmit={onLogin} className="grid gap-3">
             <input
               className="bg-white/5 border border-white/10 rounded-xl p-3 focus:border-purple-500/50 focus:outline-none transition-all"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="管理员邮箱"
+              placeholder={t('admin.login.emailPlaceholder')}
             />
             <input
               className="bg-white/5 border border-white/10 rounded-xl p-3 focus:border-purple-500/50 focus:outline-none transition-all"
               value={password}
               onChange={e => setPassword(e.target.value)}
               type="password"
-              placeholder="密码"
+              placeholder={t('admin.login.passwordPlaceholder')}
             />
             <button className="bg-purple-600 hover:bg-purple-500 rounded-xl py-3 font-bold transition-colors" type="submit">
-              登录
+              {t('admin.login.submit')}
             </button>
           </form>
           <p className="text-xs text-purple-300">{status}</p>
@@ -772,7 +775,7 @@ export default function AdminWorkbench() {
         <div className="h-16 flex items-center px-5 border-b border-white/10">
           <div>
             <p className="text-[10px] uppercase tracking-[0.25em] text-purple-300/90 font-bold">Le3eb</p>
-            <p className="text-sm font-black">管理后台</p>
+            <p className="text-sm font-black">{t('admin.shell.title')}</p>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
@@ -789,13 +792,13 @@ export default function AdminWorkbench() {
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0 opacity-90" />
-                <span className="font-medium">{item.label}</span>
+                <span className="font-medium">{t(item.labelKey)}</span>
                 {active && <ChevronRight className="w-4 h-4 ml-auto opacity-60" />}
               </button>
             );
           })}
         </nav>
-        <div className="p-3 border-t border-white/10 text-[10px] text-gray-500">本地工作台 · 仅供运营调试</div>
+        <div className="p-3 border-t border-white/10 text-[10px] text-gray-500">{t('admin.shell.localWorkbench')}</div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
@@ -810,21 +813,21 @@ export default function AdminWorkbench() {
               >
                 {NAV_ITEMS.map(n => (
                   <option className={optionClass} key={n.id} value={n.id}>
-                    {n.label}
+                    {t(n.labelKey)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-500 truncate">Le3eb 控制台</p>
-              <h1 className="text-base md:text-lg font-black truncate">{NAV_TITLE[activeNav]}</h1>
+              <p className="text-[10px] text-gray-500 truncate">{t('admin.shell.console')}</p>
+              <h1 className="text-base md:text-lg font-black truncate">{t(NAV_TITLE_KEY[activeNav])}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="hidden sm:inline text-[10px] text-gray-500 max-w-[200px] truncate" title={status}>
               {status}
             </span>
-            <button type="button" className="p-2 rounded-xl text-gray-400 hover:bg-white/10 hover:text-white transition-colors" aria-label="通知">
+            <button type="button" className="p-2 rounded-xl text-gray-400 hover:bg-white/10 hover:text-white transition-colors" aria-label={t('admin.shell.notifications')}>
               <Bell className="w-4 h-4" />
             </button>
             <div
@@ -838,7 +841,7 @@ export default function AdminWorkbench() {
               className="hidden sm:inline-flex items-center gap-1 px-3 py-2 text-xs rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              用户端
+              {t('admin.shell.userSide')}
             </a>
             <button
               type="button"
@@ -846,7 +849,7 @@ export default function AdminWorkbench() {
               className="inline-flex items-center gap-1 px-3 py-2 text-xs rounded-xl bg-red-500/15 border border-red-500/30 text-red-200 hover:bg-red-500/25 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
-              退出
+              {t('admin.shell.logout')}
             </button>
           </div>
         </header>
@@ -870,7 +873,9 @@ export default function AdminWorkbench() {
                   style={selectDropdownArrowStyle}
                   value={dashboard?.me?.adminRoleTemplate || 'SUPER_ADMIN'}
                   onChange={e =>
-                    run('更新管理员模板', () => adminApi.updateAdminRoleTemplate(token, dashboard?.me?.id, e.target.value as any))
+                    run(t('admin.ops.updateAdminTemplate'), () =>
+                      adminApi.updateAdminRoleTemplate(token, dashboard?.me?.id, e.target.value as any)
+                    )
                   }
                 >
                   {Object.keys(roleTemplates).map(key => (
@@ -943,7 +948,10 @@ export default function AdminWorkbench() {
                             type="button"
                             className="text-purple-300 hover:underline"
                             onClick={() =>
-                              adminApi.getOperationsUser(token!, u.id).then(setUserDetail).catch((e: Error) => setStatus(e.message))
+                              adminApi
+                                .getOperationsUser(token!, u.id)
+                                .then(setUserDetail)
+                                .catch((e: Error) => setStatus(e.message || t('admin.status.operationFailed')))
                             }
                           >
                             详情
@@ -963,7 +971,10 @@ export default function AdminWorkbench() {
                       type="button"
                       className={primaryBtnClass}
                       onClick={() =>
-                        adminApi.getOperationsUser(token!, u.id).then(setUserDetail).catch((e: Error) => setStatus(e.message))
+                        adminApi
+                          .getOperationsUser(token!, u.id)
+                          .then(setUserDetail)
+                          .catch((e: Error) => setStatus(e.message || t('admin.status.operationFailed')))
                       }
                     >
                       详情
@@ -1012,14 +1023,14 @@ export default function AdminWorkbench() {
                           className={primaryBtnClass}
                           onClick={async () => {
                             if (!token) return;
-                            setStatus('处理提现…');
+                            setStatus(t('admin.status.processingWithdrawal'));
                             try {
                               await adminApi.reviewWithdrawal(token, w.id, { decision: 'APPROVE', note: '' });
                               const r = await adminApi.listWithdrawals(token, { status: wdStatusFilter || undefined, page: 1, pageSize: 40 });
                               setWithdrawalItems(r.items || []);
-                              setStatus('提现已通过');
+                              setStatus(t('admin.status.withdrawalApproved'));
                             } catch (e: any) {
-                              setStatus(e?.message || '失败');
+                              setStatus(e?.message || t('admin.status.operationFailed'));
                             }
                           }}
                         >
@@ -1030,14 +1041,14 @@ export default function AdminWorkbench() {
                           className={subtleBtnClass}
                           onClick={async () => {
                             if (!token) return;
-                            setStatus('处理提现…');
+                            setStatus(t('admin.status.processingWithdrawal'));
                             try {
                               await adminApi.reviewWithdrawal(token, w.id, { decision: 'REJECT', note: '后台拒绝' });
                               const r = await adminApi.listWithdrawals(token, { status: wdStatusFilter || undefined, page: 1, pageSize: 40 });
                               setWithdrawalItems(r.items || []);
-                              setStatus('已拒绝');
+                              setStatus(t('admin.status.withdrawalRejected'));
                             } catch (e: any) {
-                              setStatus(e?.message || '失败');
+                              setStatus(e?.message || t('admin.status.operationFailed'));
                             }
                           }}
                         >
@@ -1090,14 +1101,14 @@ export default function AdminWorkbench() {
                           className={primaryBtnClass}
                           onClick={async () => {
                             if (!token) return;
-                            setStatus('处理举报…');
+                            setStatus(t('admin.status.processingReport'));
                             try {
                               await adminApi.resolveModerationReport(token, r.id, { status: 'RESOLVED', note: '已核实' });
                               const x = await adminApi.listModerationReports(token, { status: repStatusFilter || undefined, page: 1, pageSize: 40 });
                               setReportItems(x.items || []);
-                              setStatus('已结案');
+                              setStatus(t('admin.status.reportResolved'));
                             } catch (e: any) {
-                              setStatus(e?.message || '失败');
+                              setStatus(e?.message || t('admin.status.operationFailed'));
                             }
                           }}
                         >
@@ -1108,14 +1119,14 @@ export default function AdminWorkbench() {
                           className={subtleBtnClass}
                           onClick={async () => {
                             if (!token) return;
-                            setStatus('处理举报…');
+                            setStatus(t('admin.status.processingReport'));
                             try {
                               await adminApi.resolveModerationReport(token, r.id, { status: 'DISMISSED', note: '不成立' });
                               const x = await adminApi.listModerationReports(token, { status: repStatusFilter || undefined, page: 1, pageSize: 40 });
                               setReportItems(x.items || []);
-                              setStatus('已驳回');
+                              setStatus(t('admin.status.reportDismissed'));
                             } catch (e: any) {
-                              setStatus(e?.message || '失败');
+                              setStatus(e?.message || t('admin.status.operationFailed'));
                             }
                           }}
                         >
@@ -1331,11 +1342,13 @@ export default function AdminWorkbench() {
                     try {
                       body.services = JSON.parse(companionServicesJson);
                     } catch {
-                      setStatus('服务 JSON 格式错误');
+                      setStatus(t('admin.status.invalidServiceJson'));
                       return;
                     }
                   }
-                  run('更新陪玩服务', () => adminApi.patchCompanionOperator(token!, companionEditId.trim(), body));
+                  run(t('admin.ops.updateCompanionServices'), () =>
+                    adminApi.patchCompanionOperator(token!, companionEditId.trim(), body)
+                  );
                 }}
               >
                 保存
@@ -1386,19 +1399,21 @@ export default function AdminWorkbench() {
                     最早优先
                   </option>
                 </select>
-                <button className={primaryBtnClass} onClick={() => run('筛选审计日志', () => loadAll(token))}>
+                <button className={primaryBtnClass} onClick={() => run(t('admin.ops.filterAuditLogs'), () => loadAll(token))}>
                   应用
                 </button>
                 <button
                   className={subtleBtnClass}
-                  onClick={() => run('加载下一批审计', async () => setAuditFilter(prev => ({ ...prev, page: 1, cursor: prev.cursor || '' })))}
+                  onClick={() =>
+                    run(t('admin.ops.loadMoreAudit'), async () => setAuditFilter(prev => ({ ...prev, page: 1, cursor: prev.cursor || '' })))
+                  }
                 >
                   下一批
                 </button>
                 <button
                   className={subtleBtnClass}
                   onClick={() =>
-                    run('导出审计 CSV', async () => {
+                    run(t('admin.ops.exportAuditCsv'), async () => {
                       const now = Date.now();
                       const start = now - 30 * 24 * 60 * 60 * 1000;
                       const csv = await adminApi.exportAuditLogs(token, start, now);
@@ -1495,7 +1510,7 @@ export default function AdminWorkbench() {
                           const cd = walletCoin.trim() === '' ? 0 : Number(walletCoin);
                           const dd = walletDiamond.trim() === '' ? 0 : Number(walletDiamond);
                           if (cd === 0 && dd === 0) {
-                            setStatus('请填写金币或钻石变动');
+                            setStatus(t('admin.status.fillWalletDelta'));
                             return;
                           }
                           try {
@@ -1505,9 +1520,9 @@ export default function AdminWorkbench() {
                               reason: walletReason || '后台调账'
                             });
                             setUserDetail(await adminApi.getOperationsUser(token, u.id));
-                            setStatus('调账完成');
+                            setStatus(t('admin.status.adjustDone'));
                           } catch (e: any) {
-                            setStatus(e?.message || '调账失败');
+                            setStatus(e?.message || t('admin.status.adjustFailed'));
                           }
                         }}
                       >
@@ -1531,9 +1546,9 @@ export default function AdminWorkbench() {
                               code: voucherCodeIn || 'MANUAL'
                             });
                             setUserDetail(await adminApi.getOperationsUser(token, u.id));
-                            setStatus('代金券已发放');
+                            setStatus(t('admin.status.voucherIssued'));
                           } catch (e: any) {
-                            setStatus(e?.message || '发放失败');
+                            setStatus(e?.message || t('admin.status.voucherIssueFailed'));
                           }
                         }}
                       >
@@ -1566,9 +1581,9 @@ export default function AdminWorkbench() {
                           try {
                             await adminApi.setUserAccountStatus(token, u.id, { accountStatus: acctStatusPick as any });
                             setUserDetail(await adminApi.getOperationsUser(token, u.id));
-                            setStatus('账号状态已更新');
+                            setStatus(t('admin.status.accountStatusUpdated'));
                           } catch (e: any) {
-                            setStatus(e?.message || '更新失败');
+                            setStatus(e?.message || t('admin.status.updateFailed'));
                           }
                         }}
                       >
@@ -1586,9 +1601,9 @@ export default function AdminWorkbench() {
                           try {
                             await adminApi.updateUserProfile(token, u.id, { username: profileNameIn });
                             setUserDetail(await adminApi.getOperationsUser(token, u.id));
-                            setStatus('资料已更新');
+                            setStatus(t('admin.status.profileUpdated'));
                           } catch (e: any) {
-                            setStatus(e?.message || '更新失败');
+                            setStatus(e?.message || t('admin.status.updateFailed'));
                           }
                         }}
                       >

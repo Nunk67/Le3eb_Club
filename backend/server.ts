@@ -763,12 +763,24 @@ async function startServer() {
       createdAt: Date.now()
     });
   };
+  const sendError = (
+    res: express.Response,
+    status: number,
+    code: string,
+    message: string,
+    details?: Record<string, unknown>
+  ) => {
+    return res.status(status).json({
+      error: { code, message, ...(details ? { details } : {}) },
+      legacyError: message
+    });
+  };
   const authMiddleware: express.RequestHandler = (req, res, next) => {
     const raw = req.headers.authorization || '';
     const token = raw.startsWith('Bearer ') ? raw.slice(7) : '';
     const session = sessions[token];
     if (!session || session.expiresAt < Date.now()) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return sendError(res, 401, 'AUTH_UNAUTHORIZED', 'Unauthorized');
     }
     (req as any).authUserId = session.userId;
     (req as any).authUser = getUserById(session.userId) || null;
@@ -778,10 +790,10 @@ async function startServer() {
     return (req, res, next) => {
       const user = (req as any).authUser as { role?: UserRole; permissions?: AdminPermission[]; id?: string } | null;
       if (!user || user.role !== 'ADMIN') {
-        return res.status(403).json({ error: 'Admin only' });
+        return sendError(res, 403, 'AUTH_ADMIN_ONLY', 'Admin only');
       }
       if (permission && !(user.permissions || []).includes(permission)) {
-        return res.status(403).json({ error: `Permission denied: ${permission}` });
+        return sendError(res, 403, 'AUTH_PERMISSION_DENIED', `Permission denied: ${permission}`, { permission });
       }
       next();
     };
@@ -791,10 +803,10 @@ async function startServer() {
   app.post('/api/auth/register', (req, res) => {
     const { username, email, password } = req.body || {};
     if (!username || !email || !password) {
-      return res.status(400).json({ error: 'username/email/password required' });
+      return sendError(res, 400, 'AUTH_REGISTER_FIELDS_REQUIRED', 'username/email/password required');
     }
     if (users.some(u => u.email === email)) {
-      return res.status(409).json({ error: 'Email already exists' });
+      return sendError(res, 409, 'AUTH_EMAIL_EXISTS', 'Email already exists');
     }
     const user = {
       id: `user_${Math.random().toString(36).slice(2, 9)}`,
@@ -818,7 +830,7 @@ async function startServer() {
     const { email, password } = req.body || {};
     const user = users.find(u => u.email === email && u.password === password);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return sendError(res, 401, 'AUTH_INVALID_CREDENTIALS', 'Invalid credentials');
     }
     user.lastLoginAt = Date.now();
     persistState();
@@ -831,7 +843,7 @@ async function startServer() {
   app.get('/api/auth/session', authMiddleware, (req, res) => {
     const user = users.find(u => u.id === (req as any).authUserId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return sendError(res, 404, 'AUTH_USER_NOT_FOUND', 'User not found');
     }
     res.json(toPublicUser(user));
   });
@@ -850,7 +862,7 @@ async function startServer() {
     const userId = (req as any).authUserId as string;
     const { gameName, intro, hourlyRate } = req.body || {};
     if (!gameName || !intro || typeof hourlyRate !== 'number') {
-      return res.status(400).json({ error: 'gameName/intro/hourlyRate required' });
+      return sendError(res, 400, 'COMPANION_APPLY_FIELDS_REQUIRED', 'gameName/intro/hourlyRate required');
     }
     const existing = companions.find(c => c.userId === userId);
     if (existing) {
@@ -882,10 +894,10 @@ async function startServer() {
 
   app.patch('/api/companions/:id/availability', authMiddleware, (req, res) => {
     const companion = companions.find(c => c.id === req.params.id);
-    if (!companion) return res.status(404).json({ error: 'Companion not found' });
-    if (companion.userId !== (req as any).authUserId) return res.status(403).json({ error: 'Forbidden' });
+    if (!companion) return sendError(res, 404, 'COMPANION_NOT_FOUND', 'Companion not found');
+    if (companion.userId !== (req as any).authUserId) return sendError(res, 403, 'COMPANION_FORBIDDEN', 'Forbidden');
     const nextAvailability = req.body?.availability as 'ONLINE' | 'OFFLINE' | 'BUSY';
-    if (!nextAvailability) return res.status(400).json({ error: 'availability required' });
+    if (!nextAvailability) return sendError(res, 400, 'COMPANION_AVAILABILITY_REQUIRED', 'availability required');
     companion.availability = nextAvailability;
     companion.updatedAt = Date.now();
     persistState();
@@ -971,15 +983,15 @@ async function startServer() {
     const userId = (req as any).authUserId as string;
     const buyer = getUserById(userId);
     const ban = getBanError(buyer, 'ORDER');
-    if (ban) return res.status(403).json({ error: ban });
+    if (ban) return sendError(res, 403, 'ORDER_ACTION_BLOCKED', ban);
     const { companionId, serviceName, quantity } = req.body || {};
     const companion = companions.find(c => c.id === companionId && c.status === 'APPROVED');
-    if (!companion) return res.status(404).json({ error: 'Companion not found' });
-    if (companion.availability !== 'ONLINE') return res.status(409).json({ error: 'Companion unavailable' });
+    if (!companion) return sendError(res, 404, 'ORDER_COMPANION_NOT_FOUND', 'Companion not found');
+    if (companion.availability !== 'ONLINE') return sendError(res, 409, 'ORDER_COMPANION_UNAVAILABLE', 'Companion unavailable');
     const qty = Number(quantity || 1);
     const totalPrice = companion.hourlyRate * qty;
     const userWallet = getWallet(userId);
-    if (userWallet.balance < totalPrice) return res.status(409).json({ error: 'Insufficient wallet balance' });
+    if (userWallet.balance < totalPrice) return sendError(res, 409, 'WALLET_INSUFFICIENT_BALANCE', 'Insufficient wallet balance');
     const order = {
       id: `ord_${Math.random().toString(36).slice(2, 9)}`,
       userId,
@@ -1013,17 +1025,24 @@ async function startServer() {
     actorUserId: string
   ) => {
     const order = orders.find(o => o.id === orderId);
-    if (!order) return { error: 'Order not found', code: 404 };
+    if (!order) return { errorCode: 'ORDER_NOT_FOUND', errorMessage: 'Order not found', statusCode: 404 as const };
     const actorCompanion = companions.find(c => c.userId === actorUserId);
     const isCompanionOwner = actorCompanion?.id === order.companionId;
     const isUserOwner = order.userId === actorUserId;
-    if (!isCompanionOwner && !isUserOwner) return { error: 'Forbidden', code: 403 };
+    if (!isCompanionOwner && !isUserOwner) return { errorCode: 'ORDER_FORBIDDEN', errorMessage: 'Forbidden', statusCode: 403 as const };
     if (nextStatus === 'ACCEPTED' && isCompanionOwner) {
       const actorUser = getUserById(actorUserId);
       const ban = getBanError(actorUser, 'ACCEPT_ORDER');
-      if (ban) return { error: ban, code: 403 };
+      if (ban) return { errorCode: 'ORDER_ACTION_BLOCKED', errorMessage: ban, statusCode: 403 as const };
     }
-    if (!allowedCurrent.includes(order.status)) return { error: `Invalid transition from ${order.status}`, code: 409 };
+    if (!allowedCurrent.includes(order.status)) {
+      return {
+        errorCode: 'ORDER_INVALID_TRANSITION',
+        errorMessage: `Invalid transition from ${order.status}`,
+        statusCode: 409 as const,
+        details: { from: order.status, to: nextStatus }
+      };
+    }
     order.status = nextStatus;
     if (nextStatus === 'ACCEPTED') order.acceptedAt = Date.now();
     if (nextStatus === 'IN_SERVICE') order.startedAt = Date.now();
@@ -1036,20 +1055,20 @@ async function startServer() {
 
   app.post('/api/orders/:id/accept', authMiddleware, (req, res) => {
     const result = updateOrderStatus(req.params.id, ['CREATED'], 'ACCEPTED', (req as any).authUserId);
-    if ('error' in result) return res.status(result.code).json({ error: result.error });
+    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
     res.json(result.order);
   });
 
   app.post('/api/orders/:id/start', authMiddleware, (req, res) => {
     const result = updateOrderStatus(req.params.id, ['ACCEPTED'], 'IN_SERVICE', (req as any).authUserId);
-    if ('error' in result) return res.status(result.code).json({ error: result.error });
+    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
     res.json(result.order);
   });
 
   app.post('/api/orders/:id/complete', authMiddleware, (req, res) => {
     const actorUserId = (req as any).authUserId as string;
     const result = updateOrderStatus(req.params.id, ['IN_SERVICE'], 'COMPLETED', actorUserId);
-    if ('error' in result) return res.status(result.code).json({ error: result.error });
+    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
     const order = result.order!;
     if (!order.settlementDone) {
       const wallet = getWallet(order.userId);
@@ -1075,13 +1094,13 @@ async function startServer() {
 
   app.post('/api/orders/:id/cancel', authMiddleware, (req, res) => {
     const result = updateOrderStatus(req.params.id, ['CREATED', 'ACCEPTED'], 'CANCELLED', (req as any).authUserId);
-    if ('error' in result) return res.status(result.code).json({ error: result.error });
+    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
     res.json(result.order);
   });
 
   app.post('/api/orders/:id/dispute', authMiddleware, (req, res) => {
     const result = updateOrderStatus(req.params.id, ['IN_SERVICE', 'COMPLETED'], 'DISPUTED', (req as any).authUserId);
-    if ('error' in result) return res.status(result.code).json({ error: result.error });
+    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
     result.order!.disputeReason = req.body?.reason || 'No reason provided';
     createRiskEvent('ORDER_DISPUTE', result.order!.id, 'MEDIUM', `Order dispute submitted: ${result.order!.disputeReason}`);
     persistState();
@@ -1092,10 +1111,10 @@ async function startServer() {
     const userId = (req as any).authUserId as string;
     const { orderId, rating, content } = req.body || {};
     const order = orders.find(o => o.id === orderId);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    if (order.userId !== userId) return res.status(403).json({ error: 'Only buyer can review' });
-    if (order.status !== 'COMPLETED') return res.status(409).json({ error: 'Order not completed' });
-    if (reviews.some(r => r.orderId === orderId)) return res.status(409).json({ error: 'Review already exists' });
+    if (!order) return sendError(res, 404, 'ORDER_NOT_FOUND', 'Order not found');
+    if (order.userId !== userId) return sendError(res, 403, 'REVIEW_BUYER_ONLY', 'Only buyer can review');
+    if (order.status !== 'COMPLETED') return sendError(res, 409, 'REVIEW_ORDER_NOT_COMPLETED', 'Order not completed');
+    if (reviews.some(r => r.orderId === orderId)) return sendError(res, 409, 'REVIEW_ALREADY_EXISTS', 'Review already exists');
     const lower = String(content || '').toLowerCase();
     const blocked = MODERATION_BLOCKLIST.find(keyword => lower.includes(keyword));
     const review = {
@@ -1205,11 +1224,11 @@ async function startServer() {
 
   app.post('/api/admin/users/:id/role-template', authMiddleware, requireAdmin(), (req, res) => {
     const user = users.find(item => item.id === req.params.id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.role !== 'ADMIN') return res.status(400).json({ error: 'Target user is not admin' });
+    if (!user) return sendError(res, 404, 'ADMIN_USER_NOT_FOUND', 'User not found');
+    if (user.role !== 'ADMIN') return sendError(res, 400, 'ADMIN_TARGET_NOT_ADMIN', 'Target user is not admin');
     const roleTemplate = req.body?.roleTemplate as AdminRoleTemplate;
     if (!roleTemplate || !ROLE_TEMPLATES[roleTemplate]) {
-      return res.status(400).json({ error: 'Invalid roleTemplate' });
+      return sendError(res, 400, 'ADMIN_ROLE_TEMPLATE_INVALID', 'Invalid roleTemplate');
     }
     user.adminRoleTemplate = roleTemplate;
     user.permissions = [...ROLE_TEMPLATES[roleTemplate]];
@@ -1234,9 +1253,9 @@ async function startServer() {
 
   app.post('/api/admin/companions/:id/review', authMiddleware, requireAdmin('COMPANION_REVIEW'), (req, res) => {
     const companion = companions.find(item => item.id === req.params.id);
-    if (!companion) return res.status(404).json({ error: 'Companion not found' });
+    if (!companion) return sendError(res, 404, 'COMPANION_NOT_FOUND', 'Companion not found');
     const action = req.body?.action as 'APPROVE' | 'REJECT';
-    if (!action) return res.status(400).json({ error: 'action required' });
+    if (!action) return sendError(res, 400, 'ADMIN_ACTION_REQUIRED', 'action required');
     companion.status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
     companion.updatedAt = Date.now();
     appendAuditLog((req as any).authUserId, `COMPANION_${action}`, 'companion', companion.id, { status: companion.status });
@@ -1246,7 +1265,7 @@ async function startServer() {
 
   app.patch('/api/admin/companions/:id/operator', authMiddleware, requireAdmin('COMPANION_REVIEW'), (req, res) => {
     const companion = companions.find(item => item.id === req.params.id);
-    if (!companion) return res.status(404).json({ error: 'Companion not found' });
+    if (!companion) return sendError(res, 404, 'COMPANION_NOT_FOUND', 'Companion not found');
     const hourlyRate = req.body?.hourlyRate;
     const services = req.body?.services as Array<{ id: string; name: string; unitPrice: number; unit: string }> | undefined;
     if (typeof hourlyRate === 'number' && hourlyRate > 0) {
@@ -1281,9 +1300,9 @@ async function startServer() {
 
   app.post('/api/admin/orders/:id/action', authMiddleware, requireAdmin('ORDER_OPERATE'), (req, res) => {
     const order = orders.find(item => item.id === req.params.id);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!order) return sendError(res, 404, 'ORDER_NOT_FOUND', 'Order not found');
     const action = req.body?.action as 'FORCE_CANCEL' | 'RESOLVE_DISPUTE';
-    if (!action) return res.status(400).json({ error: 'action required' });
+    if (!action) return sendError(res, 400, 'ADMIN_ACTION_REQUIRED', 'action required');
     if (action === 'FORCE_CANCEL') {
       order.status = 'CANCELLED';
       order.cancelledAt = Date.now();
@@ -1319,9 +1338,9 @@ async function startServer() {
 
   app.post('/api/admin/reviews/:id/moderate', authMiddleware, requireAdmin('REVIEW_MODERATE'), (req, res) => {
     const review = reviews.find(item => item.id === req.params.id);
-    if (!review) return res.status(404).json({ error: 'Review not found' });
+    if (!review) return sendError(res, 404, 'REVIEW_NOT_FOUND', 'Review not found');
     const action = req.body?.action as 'APPROVE' | 'REJECT';
-    if (!action) return res.status(400).json({ error: 'action required' });
+    if (!action) return sendError(res, 400, 'ADMIN_ACTION_REQUIRED', 'action required');
     review.status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
     review.updatedAt = Date.now();
     review.moderationReason = req.body?.reason || review.moderationReason;
@@ -1346,7 +1365,7 @@ async function startServer() {
 
   app.post('/api/admin/risk-events/:id/resolve', authMiddleware, requireAdmin('RISK_REVIEW'), (req, res) => {
     const event = riskEvents.find(item => item.id === req.params.id);
-    if (!event) return res.status(404).json({ error: 'Risk event not found' });
+    if (!event) return sendError(res, 404, 'RISK_EVENT_NOT_FOUND', 'Risk event not found');
     event.status = 'RESOLVED';
     event.resolvedAt = Date.now();
     event.resolvedBy = (req as any).authUserId;
@@ -1461,13 +1480,13 @@ async function startServer() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[admin/operations/users]', err);
-      res.status(500).json({ error: message });
+      res.status(500).json({ error: { code: 'ADMIN_OPERATIONS_USERS_FAILED', message }, legacyError: message });
     }
   });
 
   app.get('/api/admin/operations/users/:id', authMiddleware, requireAdmin(), (req, res) => {
     const u = users.find(x => x.id === req.params.id);
-    if (!u) return res.status(404).json({ error: 'User not found' });
+    if (!u) return sendError(res, 404, 'ADMIN_USER_NOT_FOUND', 'User not found');
     const cp = companions.find(c => c.userId === u.id);
     const ordersAsBuyer = orders.filter(o => o.userId === u.id).map(enrichOrder);
     const ordersAsCompanion = cp ? orders.filter(o => o.companionId === cp.id).map(enrichOrder) : [];
@@ -1488,19 +1507,19 @@ async function startServer() {
 
   app.post('/api/admin/operations/users/:id/wallet-adjust', authMiddleware, requireAdmin('RECHARGE_MANUAL'), (req, res) => {
     const u = users.find(x => x.id === req.params.id);
-    if (!u) return res.status(404).json({ error: 'User not found' });
+    if (!u) return sendError(res, 404, 'ADMIN_USER_NOT_FOUND', 'User not found');
     const coinDelta = Number(req.body?.coinDelta || 0);
     const diamondDelta = Number(req.body?.diamondDelta || 0);
     const reason = String(req.body?.reason || '').trim();
-    if (!reason) return res.status(400).json({ error: 'reason required' });
-    if (coinDelta === 0 && diamondDelta === 0) return res.status(400).json({ error: 'coinDelta or diamondDelta required' });
+    if (!reason) return sendError(res, 400, 'ADMIN_REASON_REQUIRED', 'reason required');
+    if (coinDelta === 0 && diamondDelta === 0) return sendError(res, 400, 'ADMIN_WALLET_DELTA_REQUIRED', 'coinDelta or diamondDelta required');
     if (coinDelta !== 0) {
       const r = adjustCoinsDelta(u.id, coinDelta, `adm_${Date.now()}`, `[后台调账] ${reason}`);
-      if (!r.ok) return res.status(400).json({ error: r.error });
+      if (!r.ok) return sendError(res, 400, 'WALLET_ADJUST_FAILED', r.error);
     }
     if (diamondDelta !== 0) {
       const r = adjustDiamondDelta(u.id, diamondDelta, `adm_d_${Date.now()}`, `[后台调账-钻石] ${reason}`);
-      if (!r.ok) return res.status(400).json({ error: r.error });
+      if (!r.ok) return sendError(res, 400, 'WALLET_ADJUST_FAILED', r.error);
     }
     appendAuditLog((req as any).authUserId, 'USER_WALLET_ADJUST', 'user', u.id, { coinDelta, diamondDelta, reason });
     persistState();
@@ -1509,13 +1528,13 @@ async function startServer() {
 
   app.post('/api/admin/operations/users/:id/voucher', authMiddleware, requireAdmin('RECHARGE_MANUAL'), (req, res) => {
     const u = users.find(x => x.id === req.params.id);
-    if (!u) return res.status(404).json({ error: 'User not found' });
+    if (!u) return sendError(res, 404, 'ADMIN_USER_NOT_FOUND', 'User not found');
     const coins = Number(req.body?.coins || 0);
     const code = String(req.body?.code || 'MANUAL');
-    if (!Number.isFinite(coins) || coins <= 0) return res.status(400).json({ error: 'coins must be positive' });
+    if (!Number.isFinite(coins) || coins <= 0) return sendError(res, 400, 'ADMIN_VOUCHER_COINS_INVALID', 'coins must be positive');
     const ref = `voucher_${Date.now()}`;
     const r = adjustCoinsDelta(u.id, coins, ref, `[代金券] ${code}`);
-    if (!r.ok) return res.status(400).json({ error: r.error });
+    if (!r.ok) return sendError(res, 400, 'ADMIN_VOUCHER_GRANT_FAILED', r.error);
     appendAuditLog((req as any).authUserId, 'USER_VOUCHER_GRANT', 'user', u.id, { coins, code });
     persistState();
     res.json({ ok: true, wallet: getWallet(u.id) });
@@ -1523,11 +1542,11 @@ async function startServer() {
 
   app.post('/api/admin/operations/users/:id/account-status', authMiddleware, requireAdmin(), (req, res) => {
     const u = users.find(x => x.id === req.params.id);
-    if (!u) return res.status(404).json({ error: 'User not found' });
-    if (u.role === 'ADMIN') return res.status(400).json({ error: 'Cannot change admin account here' });
+    if (!u) return sendError(res, 404, 'ADMIN_USER_NOT_FOUND', 'User not found');
+    if (u.role === 'ADMIN') return sendError(res, 400, 'ADMIN_ACCOUNT_STATUS_FORBIDDEN', 'Cannot change admin account here');
     const nextStatus = req.body?.accountStatus as AccountStatus | undefined;
     if (!nextStatus || !['ACTIVE', 'FROZEN', 'RISK_HOLD'].includes(nextStatus)) {
-      return res.status(400).json({ error: 'Invalid accountStatus' });
+      return sendError(res, 400, 'ADMIN_ACCOUNT_STATUS_INVALID', 'Invalid accountStatus');
     }
     u.accountStatus = nextStatus;
     if (req.body?.banModules && typeof req.body.banModules === 'object') {
@@ -1543,12 +1562,12 @@ async function startServer() {
 
   app.post('/api/admin/operations/users/:id/profile', authMiddleware, requireAdmin(), (req, res) => {
     const u = users.find(x => x.id === req.params.id);
-    if (!u) return res.status(404).json({ error: 'User not found' });
-    if (u.role === 'ADMIN') return res.status(400).json({ error: 'Cannot edit admin profile here' });
+    if (!u) return sendError(res, 404, 'ADMIN_USER_NOT_FOUND', 'User not found');
+    if (u.role === 'ADMIN') return sendError(res, 400, 'ADMIN_PROFILE_EDIT_FORBIDDEN', 'Cannot edit admin profile here');
     const { username, gender, phone, country } = req.body || {};
     if (typeof username === 'string' && username.trim()) {
       if (users.some(x => x.id !== u.id && x.username === username.trim())) {
-        return res.status(409).json({ error: 'Username taken' });
+        return sendError(res, 409, 'ADMIN_USERNAME_TAKEN', 'Username taken');
       }
       u.username = username.trim();
     }
@@ -1573,16 +1592,16 @@ async function startServer() {
 
   app.post('/api/admin/operations/withdrawals/:id/review', authMiddleware, requireAdmin('FINANCE_RECON'), (req, res) => {
     const w = withdrawalRequests.find(x => x.id === req.params.id);
-    if (!w) return res.status(404).json({ error: 'Withdrawal not found' });
-    if (w.status !== 'PENDING') return res.status(400).json({ error: 'Not pending' });
+    if (!w) return sendError(res, 404, 'WITHDRAWAL_NOT_FOUND', 'Withdrawal not found');
+    if (w.status !== 'PENDING') return sendError(res, 400, 'WITHDRAWAL_NOT_PENDING', 'Not pending');
     const decision = req.body?.decision as 'APPROVE' | 'REJECT';
-    if (!decision || !['APPROVE', 'REJECT'].includes(decision)) return res.status(400).json({ error: 'decision APPROVE|REJECT required' });
+    if (!decision || !['APPROVE', 'REJECT'].includes(decision)) return sendError(res, 400, 'WITHDRAWAL_DECISION_REQUIRED', 'decision APPROVE|REJECT required');
     const note = String(req.body?.note || '');
     if (decision === 'APPROVE') {
       const bal = diamondWallets[w.userId]?.balance ?? 0;
-      if (bal < w.diamondAmount) return res.status(400).json({ error: 'Insufficient diamond balance' });
+      if (bal < w.diamondAmount) return sendError(res, 400, 'WALLET_INSUFFICIENT_DIAMONDS', 'Insufficient diamond balance');
       const r = adjustDiamondDelta(w.userId, -w.diamondAmount, w.id, `提现通过 ${w.id}`);
-      if (!r.ok) return res.status(400).json({ error: r.error });
+      if (!r.ok) return sendError(res, 400, 'WITHDRAWAL_REVIEW_FAILED', r.error);
       w.status = 'APPROVED';
     } else {
       w.status = 'REJECTED';
@@ -1608,9 +1627,9 @@ async function startServer() {
 
   app.post('/api/admin/operations/reports/:id/resolve', authMiddleware, requireAdmin('REVIEW_MODERATE'), (req, res) => {
     const r = moderationReports.find(x => x.id === req.params.id);
-    if (!r) return res.status(404).json({ error: 'Report not found' });
+    if (!r) return sendError(res, 404, 'REPORT_NOT_FOUND', 'Report not found');
     const status = req.body?.status as 'RESOLVED' | 'DISMISSED';
-    if (!status || !['RESOLVED', 'DISMISSED'].includes(status)) return res.status(400).json({ error: 'status RESOLVED|DISMISSED required' });
+    if (!status || !['RESOLVED', 'DISMISSED'].includes(status)) return sendError(res, 400, 'REPORT_STATUS_INVALID', 'status RESOLVED|DISMISSED required');
     r.status = status;
     r.resolutionNote = String(req.body?.note || '');
     appendAuditLog((req as any).authUserId, 'REPORT_RESOLVE', 'report', r.id, { status: r.status });
@@ -1746,11 +1765,11 @@ async function startServer() {
     const { userId, packageId, paymentMethod } = req.body;
     const pkg = RECHARGE_PACKAGES.find(p => p.id === packageId);
     
-    if (!pkg) return res.status(400).json({ error: 'Invalid package' });
+    if (!pkg) return sendError(res, 400, 'RECHARGE_PACKAGE_INVALID', 'Invalid package');
     const ru = getUserById(userId);
-    if (!ru) return res.status(404).json({ error: 'User not found' });
+    if (!ru) return sendError(res, 404, 'RECHARGE_USER_NOT_FOUND', 'User not found');
     const rban = getBanError(ru, 'RECHARGE');
-    if (rban) return res.status(403).json({ error: rban });
+    if (rban) return sendError(res, 403, 'RECHARGE_ACTION_BLOCKED', rban);
 
     // Risk Control: Daily Limit Check
     const today = new Date().setHours(0, 0, 0, 0);
@@ -1760,10 +1779,7 @@ async function startServer() {
     }
     
     if (dailyRechargeLimits[userId].amount + pkg.amount > MAX_DAILY_RECHARGE) {
-      return res.status(403).json({ 
-        error: 'Daily recharge limit exceeded',
-        riskFlag: true 
-      });
+      return sendError(res, 403, 'RECHARGE_DAILY_LIMIT_EXCEEDED', 'Daily recharge limit exceeded', { riskFlag: true });
     }
 
     const order: RechargeOrder = {
@@ -1787,7 +1803,7 @@ async function startServer() {
     const { orderId, transactionId, status } = req.body;
     const order = rechargeOrders.find(o => o.id === orderId);
 
-    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!order) return sendError(res, 404, 'RECHARGE_ORDER_NOT_FOUND', 'Order not found');
     
     // Idempotency: Already processed
     if (order.status === 'SUCCESS') {
@@ -1848,14 +1864,14 @@ async function startServer() {
     const userId = (req as any).authUserId as string;
     const u = getUserById(userId);
     const ban = getBanError(u, 'WITHDRAW');
-    if (ban) return res.status(403).json({ error: ban });
+    if (ban) return sendError(res, 403, 'WITHDRAW_ACTION_BLOCKED', ban);
     const diamondAmount = Number(req.body?.diamondAmount || 0);
     const channel = String(req.body?.channel || 'BANK');
     if (!Number.isFinite(diamondAmount) || diamondAmount <= 0) {
-      return res.status(400).json({ error: 'diamondAmount required' });
+      return sendError(res, 400, 'WITHDRAW_DIAMOND_REQUIRED', 'diamondAmount required');
     }
     const bal = diamondWallets[userId]?.balance ?? 0;
-    if (bal < diamondAmount) return res.status(400).json({ error: 'Insufficient diamonds' });
+    if (bal < diamondAmount) return sendError(res, 400, 'WALLET_INSUFFICIENT_DIAMONDS', 'Insufficient diamonds');
     const feeUsd = Math.round(diamondAmount * 0.02 * 100) / 100;
     const payoutUsd = Math.max(0, Math.round((diamondAmount * 0.01 - feeUsd) * 100) / 100);
     const w: WithdrawalRequest = {
@@ -1878,10 +1894,10 @@ async function startServer() {
     const reporterUserId = (req as any).authUserId as string;
     const { targetType, targetId, reason } = req.body || {};
     if (!targetType || !targetId || !reason) {
-      return res.status(400).json({ error: 'targetType, targetId, reason required' });
+      return sendError(res, 400, 'REPORT_FIELDS_REQUIRED', 'targetType, targetId, reason required');
     }
     if (!['USER', 'ORDER', 'COMPANION'].includes(targetType)) {
-      return res.status(400).json({ error: 'Invalid targetType' });
+      return sendError(res, 400, 'REPORT_TARGET_TYPE_INVALID', 'Invalid targetType');
     }
     const rep: ModerationReport = {
       id: `rep_${Math.random().toString(36).slice(2, 10)}`,
@@ -1902,8 +1918,8 @@ async function startServer() {
     const { orderId, action } = req.body;
     const order = rechargeOrders.find(o => o.id === orderId);
 
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    if (order.status !== 'PENDING') return res.status(400).json({ error: 'Order not in pending state' });
+    if (!order) return sendError(res, 404, 'RECHARGE_ORDER_NOT_FOUND', 'Order not found');
+    if (order.status !== 'PENDING') return sendError(res, 400, 'RECHARGE_ORDER_STATE_INVALID', 'Order not in pending state');
 
     if (action === 'APPROVE') {
       order.status = 'SUCCESS';
@@ -1925,7 +1941,7 @@ async function startServer() {
     const order = rechargeOrders.find(o => o.transactionId === transactionId);
 
     if (!order || order.status !== 'SUCCESS') {
-      return res.status(404).json({ error: 'Successful order with this transaction ID not found' });
+      return sendError(res, 404, 'RECHARGE_SUCCESS_ORDER_NOT_FOUND', 'Successful order with this transaction ID not found');
     }
 
     order.status = 'REFUNDED';

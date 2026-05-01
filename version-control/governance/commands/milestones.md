@@ -284,10 +284,10 @@ Required per-phase closure steps:
   - `client/App.tsx` + `client/i18n/messages.ts` (**M8 carryover**: complete remaining client dictionary keys and screens listed under `P6-2b` in the i18n rollout below)
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M8`
-  - Latest result: `TBD`
+  - Latest result: `passed` (`react-example@0.8.1`)
 - **Closure decision**:
   - Decision: `Not closed`
-  - Risks/notes: M8 scope includes admin operations depth **and** deferred client i18n completion (`P6-2b`) plus admin localization (`P6-3`) and backend error-code-first migration (`P6-4`) per phase plan. Pending full capability closure record and gate snapshot.
+  - Risks/notes: M8 scope includes admin operations depth **and** deferred client i18n completion (`P6-2b`) plus admin localization (`P6-3`) and backend error-code-first migration (`P6-4`) per phase plan. **Wrap-up update completed**: remaining companion/review/admin legacy backend error-string responses were moved to `sendError(...)`; admin run-operation labels and error fallbacks are key-based (`admin.ops.*`, `admin.status.*`); additional client edge-copy around profile follow/ID/follower text and no-post state is now dictionary-driven. Remaining M8 gaps are broader admin table/forms full-surface localization and optional non-critical client copy polish.
 
 ### M9 full-system integration audit stub
 

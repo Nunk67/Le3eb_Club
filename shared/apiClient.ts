@@ -21,8 +21,23 @@ export async function readJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     if (contentType.includes('application/json')) {
       try {
-        const payload = JSON.parse(text) as { error?: string };
-        throw new Error(payload.error || text || `HTTP ${response.status}`);
+        const payload = JSON.parse(text) as {
+          error?: string | { code?: string; message?: string };
+          legacyError?: string;
+          errorCode?: string;
+          errorMessage?: string;
+        };
+        const nestedError = typeof payload.error === 'object' && payload.error !== null ? payload.error : undefined;
+        const message =
+          nestedError?.code ||
+          nestedError?.message ||
+          payload.errorMessage ||
+          payload.errorCode ||
+          (typeof payload.error === 'string' ? payload.error : '') ||
+          payload.legacyError ||
+          text ||
+          `HTTP ${response.status}`;
+        throw new Error(message);
       } catch (e) {
         if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e;
       }

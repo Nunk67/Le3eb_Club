@@ -4,6 +4,27 @@ Notable product-facing and governance changes. **Canonical numeric SemVer** is `
 
 ## [Unreleased]
 
+### [2026-05-02 00:45:00 LOCAL] [0.8.1] M8 wrap-up: backend error-code closure, admin operation-label i18n, and client edge-copy keying.
+
+- Completed remaining legacy backend error-string migration in `backend/server.ts` by routing companion/review/admin operation branches to `sendError(...)` with stable `error.code` values.
+- Finalized `admin/AdminWorkbench.tsx` operation labels and status fallbacks through i18n keys; added `admin.ops.*` dictionary entries in `client/i18n/messages.ts`.
+- Keyed additional user-visible edge copy in `client/App.tsx` (`follow/following`, profile `ID` prefix, followers/following labels, and no-posts state) using existing message keys.
+- Re-validated with `npm run lint`, `npm run validate:i18n`, and `npm run validate:gate -- M8` (all passed on `react-example@0.8.1`).
+
+### [2026-05-02 00:10:00 LOCAL] [0.8.1] M8 round-2: IM/community i18n, admin status-key mapping, and recharge/admin error-code expansion.
+
+- Extended `client/i18n/messages.ts` with `search.*`, `community.*`, `category.*`, `im.*`, and `contacts.*` keys; localized IM/community/contact/search surfaces in `client/App.tsx` via `t(...)`.
+- Unified `admin/AdminWorkbench.tsx` status feedback by mapping operation labels and key status branches to `admin.status.*` dictionary keys, including run-complete template output.
+- Expanded `backend/server.ts` error-code-first adoption across recharge/wallet/admin operation routes (`sendError` with `error.code/message/details` + `legacyError`) while keeping `shared/apiClient.ts` compatibility parser intact.
+- Re-validated with `npm run lint`, `npm run validate:i18n`, and `npm run validate:gate -- --stage=M8` (all passed on `react-example@0.8.1`).
+
+### [2026-05-01 23:35:00 LOCAL] [0.8.1] M8 round-1 baseline: client/auth shell i18n, admin shell i18n, and auth/order error-code compatibility.
+
+- Extended `client/i18n/messages.ts` with `home.*`, `auth.*`, and `admin.*` keys; migrated client HOME high-visibility labels and auth flow text in `client/App.tsx` to `t(...)`.
+- Wired `admin/AdminWorkbench.tsx` to `useI18n` and localized login/nav shell surfaces (login card, sidebar nav labels, header shell actions/status copy) without changing admin business operations logic.
+- Added backend error helper in `backend/server.ts` and migrated auth/order critical error paths to `error: { code, message, details? }` with `legacyError`; updated `shared/apiClient.ts` to parse `error.code -> error.message -> legacy/top-level fallbacks`.
+- Re-validated with `npm run lint`, `npm run validate:i18n`, and `npm run validate:gate -- --stage=M8` (all passed on `react-example@0.8.1`).
+
 ### [2026-05-01 15:05:00 LOCAL] [0.8.0] Restart M7 with client phase-A i18n foundation and gate-backed evidence refresh.
 
 - Promoted product SemVer to `0.8.0` in `version-control/version` and `package.json` to align with M7 mapping.

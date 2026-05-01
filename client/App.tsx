@@ -858,7 +858,7 @@ export default function App() {
     return cloned.sort((a, b) => b.rankingScore - a.rankingScore || b.avgRating - a.avgRating);
   }, [companionRankings, rankingSortBy]);
 
-  const openAuthModal = (statusText = 'Please log in to continue') => {
+  const openAuthModal = (statusText = t('auth.loginRequired')) => {
     setAuthStatus(statusText);
     setAuthMode('LOGIN');
     setShowAuthModal(true);
@@ -866,7 +866,7 @@ export default function App() {
 
   const requireAuthAction = (statusText?: string) => {
     if (isAuthenticatedRef.current) return true;
-    openAuthModal(statusText || 'Please log in to continue');
+    openAuthModal(statusText || t('auth.loginRequired'));
     return false;
   };
 
@@ -889,11 +889,11 @@ export default function App() {
     setCurrentView('HOME');
     setViewHistory(['HOME']);
     setShowAuthModal(false);
-    setAuthStatus('Logged out');
+    setAuthStatus(t('auth.loggedOut'));
   };
 
   const handleAuthSubmit = async () => {
-    setAuthStatus(authMode === 'LOGIN' ? 'Logging in...' : 'Registering...');
+    setAuthStatus(authMode === 'LOGIN' ? t('auth.loggingIn') : t('auth.registering'));
     try {
       if (authMode === 'REGISTER') {
         await businessApi.register(authUsername, authEmail, authPassword);
@@ -906,7 +906,7 @@ export default function App() {
       setAuthToken(session.token);
       authTokenRef.current = session.token;
       setShowAuthModal(false);
-      setAuthStatus('Logged in');
+      setAuthStatus(t('auth.loggedIn'));
       const pending = pendingNavigationRef.current;
       pendingNavigationRef.current = null;
       if (pending) {
@@ -1154,7 +1154,7 @@ export default function App() {
   }, [communityTab, selectedGame, followedEPals]);
 
   const toggleFollow = (id: string) => {
-    if (!requireAuthAction('Follow requires login')) {
+    if (!requireAuthAction(t('auth.loginRequiredFeature'))) {
       return;
     }
     if (followedEPals.has(id)) {
@@ -1227,7 +1227,7 @@ export default function App() {
     const requiresAuth = PROTECTED_VIEWS.has(view) || (view === 'POST_DETAIL' && data?.focusInput);
     if (requiresAuth && !isAuthenticatedRef.current) {
       pendingNavigationRef.current = { view, data };
-      openAuthModal('Please log in before using this feature');
+      openAuthModal(t('auth.loginRequiredFeature'));
       return;
     }
 
@@ -1408,7 +1408,7 @@ export default function App() {
                   className="w-full flex items-center bg-white/5 rounded-full px-4 py-2 border border-white/10 hover:border-purple-500/50 transition-all text-left"
                 >
                   <Search className="w-4 h-4 text-gray-400" />
-                  <span className="ml-2 text-sm text-gray-500">Search</span>
+                <span className="ml-2 text-sm text-gray-500">{t('home.search')}</span>
                 </button>
               </div>
               <button className="ml-4 p-2 text-purple-400 hover:bg-purple-500/10 rounded-full transition-colors">
@@ -1432,7 +1432,7 @@ export default function App() {
                           selectedGame === null ? 'bg-purple-600 text-white' : 'text-gray-400'
                         }`}
                       >
-                        All
+                        {t('orders.tabAll')}
                       </button>
                       {GAMES.slice(0, 4).map(game => (
                         <button
@@ -1455,7 +1455,7 @@ export default function App() {
                   </div>
                 ) : currentView === 'IM' ? (
                   <div className="flex items-center justify-between w-full">
-                    <span>Messages</span>
+                    <span>{t('nav.im')}</span>
                     <div className="flex items-center gap-2">
                       <button onClick={() => setShowFullSearch(true)} className="p-2 hover:bg-white/10 rounded-full">
                         <Search className="w-5 h-5" />
@@ -1469,9 +1469,9 @@ export default function App() {
                     </div>
                   </div>
                 ) : currentView === 'ME' ? (
-                  'Me'
+                  t('nav.me')
                 ) : currentView === 'COMMUNITY_SELECTOR' ? (
-                  'Select Community'
+                  t('community.selectTitle')
                 ) : null}
               </h2>
             </div>
@@ -1507,7 +1507,7 @@ export default function App() {
                 <input
                   autoFocus
                   type="text"
-                  placeholder="Search by ID or Name"
+                  placeholder={t('search.placeholderByIdOrName')}
                   value={fullSearchQuery}
                   onChange={(e) => {
                     const query = e.target.value;
@@ -1535,17 +1535,17 @@ export default function App() {
                     <Search className="w-10 h-10 text-gray-700" />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-gray-400 font-bold">Search for EPals</p>
-                    <p className="text-xs text-gray-600">Enter an ID or nickname to find someone</p>
+                    <p className="text-gray-400 font-bold">{t('search.forEpalsTitle')}</p>
+                    <p className="text-xs text-gray-600">{t('search.forEpalsSubtitle')}</p>
                   </div>
                 </div>
               ) : fullSearchResults.length === 0 ? (
                 <div className="py-20 text-center space-y-4">
-                  <p className="text-gray-500 font-bold">No results found for "{fullSearchQuery}"</p>
+                  <p className="text-gray-500 font-bold">{t('search.noResultsForQuery', { query: fullSearchQuery })}</p>
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Search Results</p>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{t('search.resultsHeading')}</p>
                   <div className="space-y-4">
                     {fullSearchResults.map(epal => {
                       const session = currentView === 'IM' ? chatSessions.find(s => s.participantId === epal.id) : null;
@@ -1573,7 +1573,9 @@ export default function App() {
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] text-gray-500 font-mono">ID: {epal.id}</span>
+                                  <span className="text-[10px] text-gray-500 font-mono">
+                                    {t('search.epalIdPrefix')} {epal.id}
+                                  </span>
                                   <span className="text-gray-700 text-[10px]">•</span>
                                   <span className="text-[10px] text-purple-400 font-bold">{epal.game}</span>
                                 </div>
@@ -1633,7 +1635,7 @@ export default function App() {
               {/* Trending Realms */}
               <section className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-bold tracking-tight">Trending Realms</h3>
+                  <h3 className="text-xl font-bold tracking-tight">{t('home.trendingRealms')}</h3>
                   <button 
                     onClick={() => {
                       setSelectedCategory('GAMES');
@@ -1641,7 +1643,7 @@ export default function App() {
                     }} 
                     className="text-xs text-purple-400 font-bold"
                   >
-                    View All
+                    {t('home.viewAll')}
                   </button>
                 </div>
                 <div 
@@ -1684,10 +1686,10 @@ export default function App() {
                     <div className="w-6 h-6 bg-yellow-500/20 rounded-full flex items-center justify-center">
                       <Star className="w-4 h-4 text-yellow-500 fill-current" />
                     </div>
-                    <h3 className="text-xl font-bold tracking-tight">Legend ePals</h3>
+                    <h3 className="text-xl font-bold tracking-tight">{t('home.legendEPals')}</h3>
                   </div>
                   <button onClick={() => navigateTo('LEGEND_LIST')} className="text-sm font-bold text-purple-400 flex items-center gap-1">
-                    View All <ChevronRight className="w-4 h-4" />
+                    {t('home.viewAll')} <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
 
@@ -1718,7 +1720,7 @@ export default function App() {
 
               {/* More ePals */}
               <section className="space-y-6">
-                <h3 className="text-xl font-bold tracking-tight">More ePals</h3>
+                <h3 className="text-xl font-bold tracking-tight">{t('home.moreEPals')}</h3>
                 <div className="space-y-4">
                   {moreEPals.map(epal => {
                     const badgeText = epal.game;
@@ -1743,7 +1745,7 @@ export default function App() {
                   {loadingMore && (
                     <div className="flex items-center gap-2 text-gray-500 font-bold">
                       <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                      <span>Loading more...</span>
+                      <span>{t('home.loadingMore')}</span>
                     </div>
                   )}
                 </div>
@@ -1810,9 +1812,9 @@ export default function App() {
               <div className="sticky top-0 z-50 bg-[#0f071a]/80 backdrop-blur-md border-b border-white/5">
                 <div className="flex px-6">
                   {[
-                    { id: 'TRENDING', label: 'Trending' },
-                    { id: 'LATEST', label: 'Latest' },
-                    { id: 'FOLLOWING', label: 'Following' }
+                    { id: 'TRENDING', label: t('community.tabTrending') },
+                    { id: 'LATEST', label: t('community.tabLatest') },
+                    { id: 'FOLLOWING', label: t('community.feedFollowing') }
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -1882,7 +1884,7 @@ export default function App() {
                               : 'bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]'
                           }`}
                         >
-                          {followedEPals.has(post.userId) ? 'Following' : 'Follow'}
+                          {followedEPals.has(post.userId) ? t('community.following') : t('community.follow')}
                         </button>
                       </div>
 
@@ -1927,13 +1929,13 @@ export default function App() {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (!requireAuthAction('Sending gifts requires login')) return;
+                              if (!requireAuthAction(t('auth.loginRequiredFeature'))) return;
                               setShowGiftPanel(true);
                             }}
                             className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
                           >
                             <Gift className="w-6 h-6" />
-                            <span className="text-sm font-bold">Gift</span>
+                            <span className="text-sm font-bold">{t('community.gift')}</span>
                           </button>
                         </div>
                         <div className="flex items-center gap-4">
@@ -1953,11 +1955,9 @@ export default function App() {
                       <Users className="w-10 h-10 text-gray-600" />
                     </div>
                     <div className="space-y-1">
-                      <h3 className="text-white font-bold">No posts found</h3>
+                      <h3 className="text-white font-bold">{t('community.noPostsTitle')}</h3>
                       <p className="text-gray-500 text-sm">
-                        {communityTab === 'FOLLOWING' 
-                          ? "You haven't followed anyone yet or they haven't posted." 
-                          : "Try exploring other tabs or categories."}
+                        {communityTab === 'FOLLOWING' ? t('community.noPostsFollowingHint') : t('community.noPostsGenericHint')}
                       </p>
                     </div>
                   </div>
@@ -1980,15 +1980,15 @@ export default function App() {
                   <button onClick={handleBack} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                     <ArrowLeft className="w-6 h-6" />
                   </button>
-                  <h2 className="text-lg font-bold">Services</h2>
+                  <h2 className="text-lg font-bold">{t('category.servicesTitle')}</h2>
                 </div>
                 
                 {/* Tabs */}
                 <div className="flex px-6 border-b border-white/5">
                   {[
-                    { id: 'GAMES', label: 'Games' },
-                    { id: 'CHILLING', label: 'Chilling' },
-                    { id: 'FAVOURITE', label: 'Favorite' }
+                    { id: 'GAMES', label: t('apply.tabGames') },
+                    { id: 'CHILLING', label: t('category.tabChilling') },
+                    { id: 'FAVOURITE', label: t('category.tabFavorite') }
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -2032,7 +2032,7 @@ export default function App() {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-4">
                       <Search className="w-12 h-12 opacity-20" />
-                      <p className="font-bold">No games found for "{searchQuery}"</p>
+                      <p className="font-bold">{t('category.noGamesForQuery', { query: searchQuery })}</p>
                     </div>
                   )}
                   
@@ -2071,12 +2071,16 @@ export default function App() {
                           {selectedCategory === 'FAVOURITE' && searchQuery === '' ? (
                             <>
                               <Star className="w-12 h-12 opacity-20" />
-                              <p className="font-bold">No favorites yet</p>
+                              <p className="font-bold">{t('category.noFavoritesYet')}</p>
                             </>
                           ) : (
                             <>
                               <Search className="w-12 h-12 opacity-20" />
-                              <p className="font-bold">No results found {searchQuery && `for "${searchQuery}"`}</p>
+                              <p className="font-bold">
+                                {searchQuery
+                                  ? t('search.noResultsForQuery', { query: searchQuery })
+                                  : t('category.noResultsForSearch')}
+                              </p>
                             </>
                           )}
                         </div>
@@ -2166,13 +2170,13 @@ export default function App() {
                         </button>
                         <button
                           onClick={() => {
-                            if (!requireAuthAction('Sending gifts requires login')) return;
+                            if (!requireAuthAction(t('auth.loginRequiredFeature'))) return;
                             setShowGiftPanel(true);
                           }}
                           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
                         >
                           <Gift className="w-6 h-6" />
-                          <span className="text-sm font-bold">Gift</span>
+                          <span className="text-sm font-bold">{t('community.gift')}</span>
                         </button>
                       </div>
                       <button 
@@ -2520,7 +2524,7 @@ export default function App() {
                       }`} 
                     />
                     <span className="text-[10px] font-bold text-white uppercase tracking-widest">
-                      {selectedEPal && followedEPals.has(selectedEPal.id) ? 'Following' : 'Follow'}
+                      {selectedEPal && followedEPals.has(selectedEPal.id) ? t('community.following') : t('community.follow')}
                     </span>
                   </button>
 
@@ -2536,7 +2540,9 @@ export default function App() {
 
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-1 text-[10px] text-gray-500 font-bold">
-                        <span className="bg-white/5 px-1.5 py-0.5 rounded border border-white/10 uppercase tracking-tight">ID: {selectedEPal.id.slice(0, 8)}</span>
+                        <span className="bg-white/5 px-1.5 py-0.5 rounded border border-white/10 uppercase tracking-tight">
+                          {t('search.epalIdPrefix')} {selectedEPal.id.slice(0, 8)}
+                        </span>
                         <button 
                           onClick={() => copyToClipboard(selectedEPal.id)}
                           className="p-1 hover:bg-white/10 rounded-md transition-colors"
@@ -2548,11 +2554,11 @@ export default function App() {
                       <div className="flex items-center gap-3 text-[10px] font-bold text-gray-500">
                         <div className="flex items-center gap-1">
                           <span>{selectedEPal.followersCount || '0'}</span>
-                          <span className="font-medium opacity-60">Followers</span>
+                          <span className="font-medium opacity-60">{t('contacts.tabFollowers')}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span>{selectedEPal.followingCount || '0'}</span>
-                          <span className="font-medium opacity-60">Following</span>
+                          <span className="font-medium opacity-60">{t('contacts.tabFollowing')}</span>
                         </div>
                       </div>
                     </div>
@@ -2899,7 +2905,7 @@ export default function App() {
                             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto">
                               <Layout className="w-8 h-8 text-gray-600" />
                             </div>
-                            <p className="text-gray-500 font-bold">No posts yet</p>
+                            <p className="text-gray-500 font-bold">{t('community.noPostsTitle')}</p>
                           </div>
                         );
                       }
@@ -3182,21 +3188,21 @@ export default function App() {
                   onClick={() => setImTab('MESSAGE')}
                   className={`flex-1 text-center text-lg font-bold transition-all relative ${imTab === 'MESSAGE' ? 'text-white' : 'text-gray-500'}`}
                 >
-                  Message
+                  {t('im.tabMessage')}
                   {imTab === 'MESSAGE' && <motion.div layoutId="imTab" className="absolute -bottom-4 left-0 right-0 h-1 bg-purple-500 rounded-full" />}
                 </button>
                 <button 
                   onClick={() => setImTab('FRIENDS')}
                   className={`flex-1 text-center text-lg font-bold transition-all relative ${imTab === 'FRIENDS' ? 'text-white' : 'text-gray-500'}`}
                 >
-                  Friends
+                  {t('im.tabFriends')}
                   {imTab === 'FRIENDS' && <motion.div layoutId="imTab" className="absolute -bottom-4 left-0 right-0 h-1 bg-purple-500 rounded-full" />}
                 </button>
                 <button 
                   onClick={() => setImTab('ORDER')}
                   className={`flex-1 text-center text-lg font-bold transition-all relative ${imTab === 'ORDER' ? 'text-white' : 'text-gray-500'}`}
                 >
-                  Order
+                  {t('im.tabOrder')}
                   {imTab === 'ORDER' && <motion.div layoutId="imTab" className="absolute -bottom-4 left-0 right-0 h-1 bg-purple-500 rounded-full" />}
                 </button>
               </div>
@@ -3243,7 +3249,7 @@ export default function App() {
                       <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto border border-white/5">
                         <Users className="w-8 h-8 text-gray-700" />
                       </div>
-                      <p className="text-gray-500 font-bold">No mutual followers found</p>
+                      <p className="text-gray-500 font-bold">{t('im.noMutualFollowers')}</p>
                     </div>
                   ) : (
                     mutualFollowers.filter(e => !imSearchQuery || e.name.toLowerCase().includes(imSearchQuery.toLowerCase())).map(epal => {
@@ -3270,7 +3276,7 @@ export default function App() {
                               )}
                             </div>
                             <p className="text-sm text-gray-400 truncate">
-                              {session ? session.lastMessage : `Mutual follower • ${epal.game}`}
+                              {session ? session.lastMessage : t('im.mutualFollowerLine', { game: epal.game })}
                             </p>
                           </div>
                         </div>
@@ -3368,15 +3374,15 @@ export default function App() {
                 <button onClick={handleBack} className="p-2 bg-white/5 rounded-xl border border-white/10">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h1 className="text-xl font-bold">Contacts</h1>
+                <h1 className="text-xl font-bold">{t('contacts.title')}</h1>
               </div>
 
               {/* Contacts Tabs */}
               <div className="flex items-center border-b border-white/5">
                 {[
-                  { id: 'FRIENDS', label: 'Friends' },
-                  { id: 'FOLLOWING', label: 'Following' },
-                  { id: 'FOLLOWERS', label: 'Followers' },
+                  { id: 'FRIENDS', label: t('contacts.tabFriends') },
+                  { id: 'FOLLOWING', label: t('contacts.tabFollowing') },
+                  { id: 'FOLLOWERS', label: t('contacts.tabFollowers') },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -3410,7 +3416,13 @@ export default function App() {
                         <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto border border-white/5">
                           <Users className="w-8 h-8 text-gray-700" />
                         </div>
-                        <p className="text-gray-500 font-bold">No {contactsTab.toLowerCase()} yet</p>
+                        <p className="text-gray-500 font-bold">
+                          {contactsTab === 'FRIENDS'
+                            ? t('contacts.emptyFriends')
+                            : contactsTab === 'FOLLOWING'
+                              ? t('contacts.emptyFollowing')
+                              : t('contacts.emptyFollowers')}
+                        </p>
                       </div>
                     );
                   }
@@ -3429,7 +3441,7 @@ export default function App() {
                       {contactsTab === 'FRIENDS' && (
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 rounded-full border border-purple-500/20">
                           <CheckCircle2 className="w-3 h-3 text-purple-400" />
-                          <span className="text-[10px] font-bold text-purple-400 uppercase">Mutual</span>
+                          <span className="text-[10px] font-bold text-purple-400 uppercase">{t('contacts.mutual')}</span>
                         </div>
                       )}
                     </div>
@@ -3461,7 +3473,7 @@ export default function App() {
                       <h4 className="font-bold text-white text-sm leading-tight group-hover:text-purple-400 transition-colors">{selectedEPal.name}</h4>
                       <div className="flex items-center gap-1 mt-0.5">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
-                        <span className="text-[9px] text-green-500 font-bold uppercase tracking-tighter">Online</span>
+                        <span className="text-[9px] text-green-500 font-bold uppercase tracking-tighter">{t('im.online')}</span>
                       </div>
                     </div>
                   </div>
@@ -3581,7 +3593,7 @@ export default function App() {
                         type="text" 
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
-                        placeholder="Type a message..." 
+                        placeholder={t('im.typeMessagePlaceholder')} 
                         className="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder:text-gray-500"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && messageInput.trim()) {
@@ -3601,7 +3613,7 @@ export default function App() {
                     </div>
                     <button 
                       onClick={() => {
-                        if (!requireAuthAction('Sending gifts requires login')) return;
+                        if (!requireAuthAction(t('auth.loginRequiredFeature'))) return;
                         setShowGiftPanel(true);
                       }}
                       className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"
@@ -3648,25 +3660,25 @@ export default function App() {
                       <User className="w-8 h-8 text-purple-400" />
                     </div>
                     <div className="space-y-2">
-                      <h2 className="text-2xl font-black text-white">Welcome</h2>
-                      <p className="text-sm text-gray-400">You are currently not logged in. Log in to access personal center and account actions.</p>
+                      <h2 className="text-2xl font-black text-white">{t('auth.welcomeTitle')}</h2>
+                      <p className="text-sm text-gray-400">{t('auth.welcomeBody')}</p>
                     </div>
                     <div className="grid gap-3">
                       <button
-                        onClick={() => openAuthModal('Please log in to continue')}
+                        onClick={() => openAuthModal(t('auth.loginRequired'))}
                         className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold"
                       >
-                        Go to Login
+                        {t('auth.goToLogin')}
                       </button>
                       <button
                         onClick={() => {
                           setAuthMode('REGISTER');
-                          setAuthStatus('Create an account to continue');
+                          setAuthStatus(t('auth.registerPrompt'));
                           setShowAuthModal(true);
                         }}
                         className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-gray-200 font-bold"
                       >
-                        Register
+                        {t('auth.register')}
                       </button>
                     </div>
                   </GlassCard>
@@ -5623,7 +5635,9 @@ export default function App() {
                   <h2 className="text-lg font-bold">{selectedEPal.services?.find(s => s.id === activeServiceId)?.name || selectedEPal.game}</h2>
                   <div className="space-y-0.5">
                     <p className="text-sm font-bold text-white leading-tight">{selectedEPal.name}</p>
-                    <p className="text-sm font-bold text-white opacity-60 leading-tight">ID: {selectedEPal.id.slice(0, 8)}</p>
+                    <p className="text-sm font-bold text-white opacity-60 leading-tight">
+                      {t('search.epalIdPrefix')} {selectedEPal.id.slice(0, 8)}
+                    </p>
                   </div>
                 </div>
               </GlassCard>
@@ -7092,19 +7106,19 @@ export default function App() {
               >
                 <GlassCard className="p-7 space-y-5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-2xl font-black text-white">{authMode === 'LOGIN' ? 'Login' : 'Register'}</h3>
+                    <h3 className="text-2xl font-black text-white">{authMode === 'LOGIN' ? t('auth.modalLogin') : t('auth.modalRegister')}</h3>
                     <button onClick={() => setShowAuthModal(false)} className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-xs text-purple-300">{authStatus || 'Use your account to continue.'}</p>
+                  <p className="text-xs text-purple-300">{authStatus || t('auth.modalContinueHint')}</p>
                   <div className="space-y-3">
                     {authMode === 'REGISTER' && (
                       <input
                         className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
                         value={authUsername}
                         onChange={(e) => setAuthUsername(e.target.value)}
-                        placeholder="username"
+                        placeholder={t('auth.usernamePlaceholder')}
                         required
                       />
                     )}
@@ -7112,7 +7126,7 @@ export default function App() {
                       className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
                       value={authEmail}
                       onChange={(e) => setAuthEmail(e.target.value)}
-                      placeholder="email"
+                      placeholder={t('auth.emailPlaceholder')}
                       type="email"
                       required
                     />
@@ -7120,7 +7134,7 @@ export default function App() {
                       className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
                       value={authPassword}
                       onChange={(e) => setAuthPassword(e.target.value)}
-                      placeholder="password"
+                      placeholder={t('auth.passwordPlaceholder')}
                       type="password"
                       required
                     />
@@ -7129,14 +7143,14 @@ export default function App() {
                       onClick={handleAuthSubmit}
                       className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 font-bold text-white"
                     >
-                      {authMode === 'LOGIN' ? 'Login' : 'Create account'}
+                      {authMode === 'LOGIN' ? t('auth.modalLogin') : t('auth.createAccount')}
                     </button>
                   </div>
                   <button
                     onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')}
                     className="w-full py-2 text-xs font-bold text-gray-300 hover:text-white"
                   >
-                    {authMode === 'LOGIN' ? 'No account? Register now' : 'Already have an account? Log in'}
+                    {authMode === 'LOGIN' ? t('auth.noAccountRegister') : t('auth.haveAccountLogin')}
                   </button>
                 </GlassCard>
               </motion.div>
