@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const FULL_CHECKS = ["validate:policy", "validate:alg", "validate:i18n", "lint", "build"];
+const M10_CHECKS = [...FULL_CHECKS, "validate:release-integrity"];
 
 /** Progressive gates: M0–M2 lighter; M3+ adds lint; M5+ adds build; M7+ enforces i18n governance; all converge by M10. */
 const STAGE_CHECKS = {
@@ -16,7 +17,7 @@ const STAGE_CHECKS = {
   M7: FULL_CHECKS,
   M8: FULL_CHECKS,
   M9: FULL_CHECKS,
-  M10: FULL_CHECKS,
+  M10: M10_CHECKS,
 };
 
 const PROFILE_TO_STAGE = {

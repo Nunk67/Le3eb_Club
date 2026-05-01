@@ -1,7 +1,7 @@
 {
   "name": "react-example",
   "private": true,
-  "version": "0.8.1",
+  "version": "1.0.0",
   "packageManager": "pnpm@9.15.0",
   "type": "module",
   "scripts": {
@@ -16,6 +16,7 @@
     "validate:alg": "node scripts/validate-companion-level.mjs",
     "validate:policy": "node scripts/validate-policy-cost.mjs",
     "validate:i18n": "node scripts/validate-i18n.mjs",
+    "validate:release-integrity": "node scripts/validate-release-integrity.mjs",
     "validate:gate": "node scripts/validate-gate.mjs",
     "validate:full-system": "npm run validate:gate -- --profile=full-system",
     "validate:all": "npm run validate:full-system"

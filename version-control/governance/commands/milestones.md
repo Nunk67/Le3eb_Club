@@ -308,17 +308,20 @@ Required per-phase closure steps:
 ### M10 release hardening audit stub
 
 - **Milestone**: `M10` (`1.0.0`)
-- **Current status**: `Partial`
+- **Current status**: `Closed`
 - **Primary evidence**:
-  - `.github/workflows/ci.yml`
-  - `scripts/validate-gate.mjs`
-  - `version-control/` (version/changelog/context governance)
+  - `.github/workflows/ci.yml` (full-system CI gate + release-integrity parity step)
+  - `scripts/validate-gate.mjs` (M10 stage gate orchestration includes `validate:release-integrity`)
+  - `scripts/validate-release-integrity.mjs` (build artifact integrity assertions for `dist/`)
+  - `version-control/scripts/verify-version.mjs` (version consistency guardrail)
+  - `version-control/version` + `package.json` + `client/constants.ts` (SemVer unified at `1.0.0`)
+  - `version-control/changelog.md` + `version-control/governance/commands/implementation-status.md` (closure evidence trace)
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M10`
-  - Latest result: `TBD`
+  - Latest result: `passed` (`react-example@1.0.0`)
 - **Closure decision**:
-  - Decision: `Not closed`
-  - Risks/notes: pending final release hardening proof and gate snapshot.
+  - Decision: `Closed`
+  - Risks/notes: M10 round-1~round-4 sequence is completed with release-integrity hardening, full regression evidence, and final SemVer closure at `1.0.0`.
 
 ## i18n rollout (phase plan)
 

@@ -29,3 +29,6 @@ jobs:
 
       - name: Stage Gate (Full System)
         run: pnpm run validate:gate -- --profile=full-system
+
+      - name: Release Integrity
+        run: pnpm run validate:release-integrity

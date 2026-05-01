@@ -4,6 +4,29 @@ Notable product-facing and governance changes. **Canonical numeric SemVer** is `
 
 ## [Unreleased]
 
+### [2026-05-02 01:45:00 LOCAL] [1.0.0] Close M10 release hardening with full-version unification.
+
+- Promoted product SemVer to `1.0.0` across `version-control/version`, `package.json`, and `client/constants.ts`, and re-validated with `npm run verify:version`.
+- Finalized M10 closure evidence in `version-control/governance/commands/milestones.md` and marked M10 `Closed` in `version-control/governance/commands/implementation-status.md`.
+- Completed final M10 gate verification on release version: `npm run validate:gate -- --stage=M10` passed on `react-example@1.0.0`.
+
+### [2026-05-02 01:38:00 LOCAL] [0.10.1] M10 round-2/3: release-integrity hardening and full regression evidence.
+
+- Added `scripts/validate-release-integrity.mjs` and `package.json` script `validate:release-integrity` to enforce build artifact integrity (`dist/`, `index.html`, JS/CSS assets).
+- Extended `scripts/validate-gate.mjs` M10 checks to include `validate:release-integrity`, and aligned CI workflow (`.github/workflows/ci.yml`) with an explicit release-integrity step.
+- Completed regression verification on `0.10.1`: `lint`, `validate:i18n`, `validate:policy`, `validate:alg`, `validate:gate -- --stage=M10`, and `validate:gate -- --profile=full-system` all passed.
+
+### [2026-05-02 01:32:00 LOCAL] [0.10.1] M10 round-1 kickoff baseline: gate snapshot and governance evidence.
+
+- Recorded M10 kickoff baseline evidence in governance docs, including primary evidence anchors and explicit non-closure risk notes in `version-control/governance/commands/milestones.md`.
+- Refreshed `version-control/governance/commands/implementation-status.md` M10 row to reference the passed M10 gate snapshot on `react-example@0.10.1`.
+- Re-validated baseline commands: `npm run verify:version` and `npm run validate:gate -- --stage=M10` (both passed).
+
+### [2026-05-02 01:18:00 LOCAL] [0.10.1] Align product SemVer to M9 milestone mapping.
+
+- Updated canonical and runtime-facing version markers to `0.10.1` in `version-control/version`, `package.json`, and `client/constants.ts` to follow the M9 milestone mapping in `version-control/governance/commands/milestones.md`.
+- Kept current M9 implementation progress and gate evidence unchanged; this change is a milestone-version alignment step.
+
 ### [2026-05-02 00:40:00 LOCAL] [0.8.1] M9 kickoff round-1: integration baseline, auth-boundary hardening, and gate evidence.
 
 - Completed M9 baseline inventory across `backend/server.ts`, `shared/apiClient.ts`, `client/App.tsx`, and `admin/AdminWorkbench.tsx`; recorded gap focus on business-side wallet/recharge auth boundary consistency.
