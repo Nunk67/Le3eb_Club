@@ -2,18 +2,20 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
-const distDir = path.join(root, "dist");
-const indexHtml = path.join(distDir, "index.html");
-const assetsDir = path.join(distDir, "assets");
+const distCandidates = [path.join(root, "dist"), path.join(root, "client", "dist")];
+const distDir = distCandidates.find((dir) => fs.existsSync(dir));
 
 function fail(message) {
   console.error(`[release-integrity] ${message}`);
   process.exit(1);
 }
 
-if (!fs.existsSync(distDir)) {
-  fail("missing dist/ directory; run build first.");
+if (!distDir) {
+  fail("missing dist directory (checked ./dist and ./client/dist); run build first.");
 }
+
+const indexHtml = path.join(distDir, "index.html");
+const assetsDir = path.join(distDir, "assets");
 
 if (!fs.existsSync(indexHtml)) {
   fail("missing dist/index.html");
