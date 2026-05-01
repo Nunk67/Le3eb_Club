@@ -4,6 +4,13 @@ Notable product-facing and governance changes. **Canonical numeric SemVer** is `
 
 ## [Unreleased]
 
+### [2026-05-02 00:40:00 LOCAL] [0.8.1] M9 kickoff round-1: integration baseline, auth-boundary hardening, and gate evidence.
+
+- Completed M9 baseline inventory across `backend/server.ts`, `shared/apiClient.ts`, `client/App.tsx`, and `admin/AdminWorkbench.tsx`; recorded gap focus on business-side wallet/recharge auth boundary consistency.
+- Hardened business wallet/recharge integration by adding auth-boundary enforcement in `backend/server.ts` (`/api/recharge/create`, `/api/recharge/verify`, `/api/wallet/balance`, `/api/wallet/transactions`) and aligning `client/App.tsx` to token-based `businessApi` calls.
+- Expanded `client/services/businessApi.ts` with typed recharge/wallet methods so business-side runtime now uses shared `apiUrl` + `readJsonResponse` semantics instead of ad-hoc `fetch(...).json()` handling for these routes.
+- Re-validated with `npm run lint`, `npm run validate:i18n`, and `npm run validate:gate -- --stage=M9` (all passed on `react-example@0.8.1`).
+
 ### [2026-05-02 00:45:00 LOCAL] [0.8.1] M8 wrap-up: backend error-code closure, admin operation-label i18n, and client edge-copy keying.
 
 - Completed remaining legacy backend error-string migration in `backend/server.ts` by routing companion/review/admin operation branches to `sendError(...)` with stable `error.code` values.

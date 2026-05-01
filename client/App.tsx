@@ -772,29 +772,36 @@ export default function App() {
   const authTokenRef = useRef<string | null>(null);
 
   const fetchWallet = useCallback(async () => {
+    const token = authTokenRef.current;
+    if (!token) {
+      setWallet(null);
+      return;
+    }
     try {
-      const res = await fetch(`/api/wallet/balance?userId=${userId}`);
-      const data = await res.json();
+      const data = await businessApi.getWalletBalance(token);
       setWallet(data);
     } catch (err) {
       console.error('Failed to fetch wallet:', err);
     }
-  }, [userId]);
+  }, []);
 
   const fetchTransactions = useCallback(async () => {
+    const token = authTokenRef.current;
+    if (!token) {
+      setTransactions([]);
+      return;
+    }
     try {
-      const res = await fetch(`/api/wallet/transactions?userId=${userId}`);
-      const data = await res.json();
+      const data = await businessApi.listWalletTransactions(token);
       setTransactions(data);
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
     }
-  }, [userId]);
+  }, []);
 
   const fetchPackages = useCallback(async () => {
     try {
-      const res = await fetch('/api/recharge/packages');
-      const data = await res.json();
+      const data = await businessApi.listRechargePackages();
       setRechargePackages(data);
     } catch (err) {
       console.error('Failed to fetch packages:', err);
@@ -815,10 +822,8 @@ export default function App() {
   }, [t]);
 
   useEffect(() => {
-    fetchWallet();
-    fetchTransactions();
     fetchPackages();
-  }, [fetchWallet, fetchTransactions, fetchPackages]);
+  }, [fetchPackages]);
 
   useEffect(() => {
     const uiAuth = sessionStorage.getItem(BUSINESS_UI_AUTH_KEY) === '1';
@@ -842,10 +847,14 @@ export default function App() {
       setCompanionRankings([]);
       setRankingsLoading(false);
       setRankingsError('');
+      setWallet(null);
+      setTransactions([]);
       return;
     }
+    fetchWallet();
+    fetchTransactions();
     fetchCompanionRankings(authToken);
-  }, [isAuthenticated, authToken, fetchCompanionRankings]);
+  }, [isAuthenticated, authToken, fetchCompanionRankings, fetchWallet, fetchTransactions]);
 
   const sortedRankings = useMemo(() => {
     const cloned = [...companionRankings];
@@ -921,17 +930,16 @@ export default function App() {
   };
 
   const handleRecharge = async (pkg: RechargePackage, method: 'GOOGLE_PAY' | 'APPLE_PAY') => {
+    if (!requireAuthAction(t('auth.loginRequired'))) return;
+    const token = authTokenRef.current;
+    if (!token) {
+      openAuthModal(t('auth.loginRequired'));
+      return;
+    }
     setIsRecharging(true);
     try {
       // 1. Create Order
-      const createRes = await fetch('/api/recharge/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, packageId: pkg.id, paymentMethod: method })
-      });
-      const order = await createRes.json();
-      
-      if (order.error) throw new Error(order.error);
+      const order = await businessApi.createRechargeOrder(token, pkg.id, method);
 
       // 2. Simulate Payment Gateway (Apple/Google Pay)
       // In a real app, this would open the native payment sheet
@@ -939,16 +947,7 @@ export default function App() {
       const transactionId = `pay_${Math.random().toString(36).substr(2, 9)}`;
 
       // 3. Verify Payment (Callback)
-      const verifyRes = await fetch('/api/recharge/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          orderId: order.id, 
-          transactionId, 
-          status: 'SUCCESS' 
-        })
-      });
-      const result = await verifyRes.json();
+      const result = await businessApi.verifyRecharge(token, order.id, transactionId, 'SUCCESS');
 
       if (result.status === 'SUCCESS') {
         await fetchWallet();

@@ -294,14 +294,16 @@ Required per-phase closure steps:
 - **Milestone**: `M9` (`0.10.0`)
 - **Current status**: `Partial`
 - **Primary evidence**:
-  - `backend/server.ts` (system integration runtime)
+  - `backend/server.ts` (system integration runtime; business wallet/recharge auth-boundary parity for `/api/recharge/create`, `/api/recharge/verify`, `/api/wallet/balance`, `/api/wallet/transactions`)
+  - `client/services/businessApi.ts` (shared request boundary expanded with typed wallet/recharge methods)
+  - `client/App.tsx` (wallet/recharge flow switched from ad-hoc fetch to token-based `businessApi` paths)
   - `version-control/governance/rules/validator-system.mdc` (full-system gate matrix and validator policy; replaces legacy split validator markdown files)
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M9`
-  - Latest result: `TBD`
+  - Latest result: `passed` (`react-example@0.8.1`)
 - **Closure decision**:
   - Decision: `Not closed`
-  - Risks/notes: pending integrated system proof and gate snapshot.
+  - Risks/notes: M9 kickoff round-1 baseline is established with a green gate snapshot and first integration hardening pass completed (business auth boundary consistency on wallet/recharge). Remaining integration gaps focus on broader end-user coverage for withdrawal/report submission surfaces and deeper cross-domain scenario evidence beyond static gate checks.
 
 ### M10 release hardening audit stub
 

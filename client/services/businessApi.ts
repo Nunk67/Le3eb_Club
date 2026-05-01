@@ -1,3 +1,5 @@
+import type { RechargeOrder, RechargePackage, Wallet as WalletType, WalletTransaction } from '@shared/types';
+
 export interface AuthSession {
   token: string;
   user: {
@@ -113,5 +115,25 @@ export const businessApi = {
   },
   listReviews(token: string) {
     return request<BusinessReview[]>('/api/reviews', 'GET', undefined, token);
+  },
+  listRechargePackages() {
+    return request<RechargePackage[]>('/api/recharge/packages', 'GET');
+  },
+  createRechargeOrder(token: string, packageId: string, paymentMethod: 'GOOGLE_PAY' | 'APPLE_PAY') {
+    return request<RechargeOrder>('/api/recharge/create', 'POST', { packageId, paymentMethod }, token);
+  },
+  verifyRecharge(token: string, orderId: string, transactionId: string, status: 'SUCCESS' | 'FAILED') {
+    return request<{ status: 'SUCCESS' | 'PENDING' | 'FAILED'; alreadyProcessed?: boolean; coins?: number; message?: string }>(
+      '/api/recharge/verify',
+      'POST',
+      { orderId, transactionId, status },
+      token
+    );
+  },
+  getWalletBalance(token: string) {
+    return request<WalletType>('/api/wallet/balance', 'GET', undefined, token);
+  },
+  listWalletTransactions(token: string) {
+    return request<WalletTransaction[]>('/api/wallet/transactions', 'GET', undefined, token);
   }
 };

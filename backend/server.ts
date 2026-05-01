@@ -1761,8 +1761,13 @@ async function startServer() {
   });
 
   // 2. Create Recharge Order
-  app.post('/api/recharge/create', (req, res) => {
-    const { userId, packageId, paymentMethod } = req.body;
+  app.post('/api/recharge/create', authMiddleware, (req, res) => {
+    const authUserId = (req as any).authUserId as string;
+    const { userId: requestedUserId, packageId, paymentMethod } = req.body;
+    const userId = authUserId;
+    if (requestedUserId && requestedUserId !== authUserId) {
+      return sendError(res, 403, 'RECHARGE_USER_MISMATCH', 'User mismatch');
+    }
     const pkg = RECHARGE_PACKAGES.find(p => p.id === packageId);
     
     if (!pkg) return sendError(res, 400, 'RECHARGE_PACKAGE_INVALID', 'Invalid package');
@@ -1799,11 +1804,13 @@ async function startServer() {
   });
 
   // 3. Verify Payment (Simulated Callback / Webhook)
-  app.post('/api/recharge/verify', (req, res) => {
+  app.post('/api/recharge/verify', authMiddleware, (req, res) => {
+    const authUserId = (req as any).authUserId as string;
     const { orderId, transactionId, status } = req.body;
     const order = rechargeOrders.find(o => o.id === orderId);
 
     if (!order) return sendError(res, 404, 'RECHARGE_ORDER_NOT_FOUND', 'Order not found');
+    if (order.userId !== authUserId) return sendError(res, 403, 'RECHARGE_VERIFY_FORBIDDEN', 'Forbidden');
     
     // Idempotency: Already processed
     if (order.status === 'SUCCESS') {
@@ -1848,14 +1855,14 @@ async function startServer() {
   });
 
   // 4. Wallet Balance
-  app.get('/api/wallet/balance', (req, res) => {
-    const userId = req.query.userId as string;
+  app.get('/api/wallet/balance', authMiddleware, (req, res) => {
+    const userId = (req as any).authUserId as string;
     res.json(getWallet(userId));
   });
 
   // 5. Wallet Transactions
-  app.get('/api/wallet/transactions', (req, res) => {
-    const userId = req.query.userId as string;
+  app.get('/api/wallet/transactions', authMiddleware, (req, res) => {
+    const userId = (req as any).authUserId as string;
     const txs = walletTransactions.filter(t => t.userId === userId);
     res.json(txs);
   });
