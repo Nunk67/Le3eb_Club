@@ -135,5 +135,8 @@ export const businessApi = {
   },
   listWalletTransactions(token: string) {
     return request<WalletTransaction[]>('/api/wallet/transactions', 'GET', undefined, token);
+  },
+  createWithdrawRequest(token: string, diamondAmount: number, channel: string) {
+    return request<unknown>('/api/wallet/withdraw-requests', 'POST', { diamondAmount, channel }, token);
   }
 };

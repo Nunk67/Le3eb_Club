@@ -69,3 +69,20 @@ npm run dev
 
 - 业务端：`http://localhost:3000/`
 - 管理后台：`http://localhost:3000/admin`
+
+## 生产准备说明
+
+- 生产启动前先执行 `npm run build`，再以 `NODE_ENV=production` 启动 `npm run dev` 对应的服务入口。
+- 服务端读取 `PORT` 环境变量；未设置时默认 `3000`。
+- 首次生产启动若没有管理员账号，需要设置 `ADMIN_EMAIL` 与 `ADMIN_PASSWORD` 进行一次性管理员引导。
+- 默认仓库数据不包含可登录演示账号；本地开发可通过默认开发种子快速验证，生产环境不要启用 `ALLOW_DEMO_SEED`。
+- `backend/data/storage.json` 适合单机预备上线和验收，不适合作为长期多实例生产数据库；正式放量前应迁移到托管数据库并配置备份。
+
+### 上线前门禁
+
+```bash
+npm run lint
+npm run build
+npm run validate:all
+npm run validate:release-integrity
+```

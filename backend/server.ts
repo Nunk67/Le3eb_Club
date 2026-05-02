@@ -15,7 +15,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'storage.json');
-const STORAGE_SCHEMA_VERSION = 8;
+const STORAGE_SCHEMA_VERSION = 9;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 type UserRole = 'USER' | 'PLAYER' | 'ADMIN';
 type AccountStatus = 'ACTIVE' | 'FROZEN' | 'RISK_HOLD';
@@ -73,7 +74,8 @@ type PersistedState = {
     id: string;
     username: string;
     email: string;
-    password: string;
+    passwordHash: string;
+    password?: string;
     role: UserRole;
     adminRoleTemplate?: AdminRoleTemplate;
     permissions?: AdminPermission[];
@@ -166,43 +168,34 @@ type PersistedState = {
   moderationReports: ModerationReport[];
 };
 
+const hashPassword = (password: string, salt = crypto.randomBytes(16).toString('hex')) => {
+  const digest = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${digest}`;
+};
+
+const verifyPassword = (password: string, storedHash: string) => {
+  const [salt, digest] = storedHash.split(':');
+  if (!salt || !digest) return false;
+  const candidate = crypto.scryptSync(password, salt, 64);
+  const expected = Buffer.from(digest, 'hex');
+  return expected.length === candidate.length && crypto.timingSafeEqual(expected, candidate);
+};
+
+const normalizeUserPassword = (user: PersistedState['users'][number]) => {
+  if (!user.passwordHash && user.password) {
+    user.passwordHash = hashPassword(user.password);
+  }
+  delete user.password;
+};
+
 const defaultState = (): PersistedState => ({
   schemaVersion: STORAGE_SCHEMA_VERSION,
   rechargeOrders: [],
-  wallets: {
-    user_1: { userId: 'user_1', balance: 120, lastUpdated: Date.now() }
-  },
+  wallets: {},
   walletTransactions: [],
   diamondWallets: {},
   dailyRechargeLimits: {},
-  users: [
-    {
-      id: 'user_1',
-      username: 'demo_user',
-      email: 'demo@le3eb.club',
-      password: 'demo123',
-      role: 'USER',
-      createdAt: Date.now(),
-      gender: 'U',
-      accountStatus: 'ACTIVE',
-      followCount: 0,
-      lastLoginAt: Date.now()
-    },
-    {
-      id: 'admin_1',
-      username: 'ops_admin',
-      email: 'admin@le3eb.club',
-      password: 'admin123',
-      role: 'ADMIN',
-      adminRoleTemplate: 'SUPER_ADMIN',
-      permissions: ['COMPANION_REVIEW', 'ORDER_OPERATE', 'REVIEW_MODERATE', 'RISK_REVIEW', 'FINANCE_RECON', 'RECHARGE_MANUAL'],
-      createdAt: Date.now(),
-      gender: 'U',
-      accountStatus: 'ACTIVE',
-      followCount: 0,
-      lastLoginAt: Date.now()
-    }
-  ],
+  users: [],
   sessions: {},
   companions: [],
   orders: [],
@@ -266,14 +259,14 @@ const migrateState = (raw: unknown): PersistedState => {
   }
 
   // v4 -> v5: bootstrap admin domain state and permissions.
-  if (merged.schemaVersion < 5) {
+    if (merged.schemaVersion < 5) {
     const adminExists = merged.users.some(user => user.role === 'ADMIN');
-    if (!adminExists) {
+    if (!IS_PRODUCTION && !adminExists) {
       merged.users.push({
         id: 'admin_1',
         username: 'ops_admin',
         email: 'admin@le3eb.club',
-        password: 'admin123',
+        passwordHash: hashPassword('admin123'),
         role: 'ADMIN',
         permissions: ['COMPANION_REVIEW', 'ORDER_OPERATE', 'REVIEW_MODERATE', 'RISK_REVIEW', 'FINANCE_RECON', 'RECHARGE_MANUAL'],
         createdAt: Date.now()
@@ -342,10 +335,17 @@ const migrateState = (raw: unknown): PersistedState => {
     merged.schemaVersion = 8;
   }
 
+  if (merged.schemaVersion < 9) {
+    merged.users.forEach(normalizeUserPassword);
+    merged.schemaVersion = 9;
+  }
+
   /** 若持久化文件里 users 被写成 [] 或损坏，避免后台「用户管理」全空 */
-  if (!Array.isArray(merged.users) || merged.users.length === 0) {
+  if (!IS_PRODUCTION && (!Array.isArray(merged.users) || merged.users.length === 0)) {
     merged.users = structuredClone(base.users);
   }
+
+  merged.users.forEach(normalizeUserPassword);
 
   merged.schemaVersion = STORAGE_SCHEMA_VERSION;
   return merged;
@@ -374,11 +374,17 @@ const loadState = (): PersistedState => {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   app.use(express.json());
+  app.use((_, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    next();
+  });
 
-  // --- Mock Database ---
+  // --- Runtime data ---
   const RECHARGE_PACKAGES: RechargePackage[] = [
     { id: 'pkg_1', amount: 0.99, coins: 60 },
     { id: 'pkg_2', amount: 4.99, coins: 300, bonus: 15 },
@@ -493,9 +499,29 @@ async function startServer() {
       'utf-8'
     );
   };
+  const pruneProductionSeedAccounts = () => {
+    if (!IS_PRODUCTION || process.env.ALLOW_DEMO_SEED === 'true') return;
+    const before = users.length;
+    for (let i = users.length - 1; i >= 0; i -= 1) {
+      const user = users[i];
+      const isDefaultDemo = user.id === 'user_1' && user.email === 'demo@le3eb.club';
+      const isDefaultAdmin = user.id === 'admin_1' && user.email === 'admin@le3eb.club';
+      if (isDefaultDemo || isDefaultAdmin) {
+        users.splice(i, 1);
+        delete wallets[user.id];
+        delete diamondWallets[user.id];
+      }
+    }
+    if (users.length !== before) {
+      persistState();
+    }
+  };
+  pruneProductionSeedAccounts();
+
   const ensureAdminSeed = () => {
     const existingAdmin = users.find(user => user.role === 'ADMIN');
     if (existingAdmin) {
+      normalizeUserPassword(existingAdmin);
       if (!existingAdmin.adminRoleTemplate) {
         existingAdmin.adminRoleTemplate = 'SUPER_ADMIN';
       }
@@ -505,23 +531,35 @@ async function startServer() {
       persistState();
       return;
     }
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (IS_PRODUCTION && (!adminEmail || !adminPassword)) {
+      console.warn('No admin user exists. Set ADMIN_EMAIL and ADMIN_PASSWORD once to bootstrap production admin access.');
+      return;
+    }
+    const now = Date.now();
     users.push({
       id: 'admin_1',
       username: 'ops_admin',
-      email: 'admin@le3eb.club',
-      password: 'admin123',
+      email: adminEmail || 'admin@le3eb.club',
+      passwordHash: hashPassword(adminPassword || 'admin123'),
       role: 'ADMIN',
       adminRoleTemplate: 'SUPER_ADMIN',
       permissions: [...ROLE_TEMPLATES.SUPER_ADMIN],
-      createdAt: Date.now()
+      createdAt: now,
+      gender: 'U',
+      accountStatus: 'ACTIVE',
+      followCount: 0,
+      lastLoginAt: now
     });
     persistState();
-    console.log('Admin seed user restored: admin@le3eb.club');
+    console.log(`Admin seed user restored: ${adminEmail || 'admin@le3eb.club'}`);
   };
   ensureAdminSeed();
 
-  /** 至少保留一个可登录的非管理员账号，便于运营页有数据（与 defaultState 一致） */
+  /** Keep local development usable without shipping demo credentials to production. */
   const ensureDemoBusinessUser = () => {
+    if (IS_PRODUCTION || process.env.ALLOW_DEMO_SEED === 'false') return;
     const hasNonAdmin = users.some(u => u.role !== 'ADMIN');
     if (hasNonAdmin) return;
     const now = Date.now();
@@ -529,7 +567,7 @@ async function startServer() {
       id: 'user_1',
       username: 'demo_user',
       email: 'demo@le3eb.club',
-      password: 'demo123',
+      passwordHash: hashPassword('demo123'),
       role: 'USER',
       createdAt: now,
       gender: 'U',
@@ -541,7 +579,7 @@ async function startServer() {
       wallets.user_1 = { userId: 'user_1', balance: 120, lastUpdated: now };
     }
     persistState();
-    console.log('Demo user restored: demo@le3eb.club / demo123');
+    console.log('Demo user restored for local development.');
   };
   ensureDemoBusinessUser();
 
@@ -607,7 +645,7 @@ async function startServer() {
     });
     persistState();
   };
-  const createToken = () => `sess_${Math.random().toString(36).slice(2, 12)}`;
+  const createToken = () => `sess_${crypto.randomBytes(32).toString('hex')}`;
   const getUserById = (userId: string) => users.find(user => user.id === userId);
   const toPublicUser = (user: { id: string; username: string; email: string; role: UserRole; adminRoleTemplate?: AdminRoleTemplate; permissions?: AdminPermission[] } | undefined) =>
     user
@@ -812,7 +850,7 @@ async function startServer() {
       id: `user_${Math.random().toString(36).slice(2, 9)}`,
       username,
       email,
-      password,
+      passwordHash: hashPassword(password),
       role: 'USER' as const,
       createdAt: Date.now(),
       gender: 'U' as const,
@@ -828,8 +866,12 @@ async function startServer() {
 
   app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body || {};
-    const user = users.find(u => u.email === email && u.password === password);
-    if (!user) {
+    const user = users.find(u => u.email === email);
+    if (user && !user.passwordHash && user.password) {
+      normalizeUserPassword(user);
+      persistState();
+    }
+    if (!user || !verifyPassword(String(password || ''), user.passwordHash)) {
       return sendError(res, 401, 'AUTH_INVALID_CREDENTIALS', 'Invalid credentials');
     }
     user.lastLoginAt = Date.now();
@@ -1943,7 +1985,7 @@ async function startServer() {
   });
 
   // 7. Chargeback Handling
-  app.post('/api/recharge/chargeback', (req, res) => {
+  app.post('/api/recharge/chargeback', authMiddleware, requireAdmin('RECHARGE_MANUAL'), (req, res) => {
     const { transactionId } = req.body;
     const order = rechargeOrders.find(o => o.transactionId === transactionId);
 
@@ -1968,6 +2010,7 @@ async function startServer() {
       timestamp: Date.now(),
       description: `Chargeback for Transaction ${transactionId}`
     });
+    appendAuditLog((req as any).authUserId, 'RECHARGE_CHARGEBACK', 'recharge', order.id, { transactionId });
     persistState();
 
     // Risk: Freeze account if balance becomes negative or too many chargebacks
@@ -1987,7 +2030,11 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distCandidates = [path.join(process.cwd(), 'dist'), path.join(process.cwd(), 'client', 'dist')];
+    const distPath = distCandidates.find(candidate => fs.existsSync(path.join(candidate, 'index.html')));
+    if (!distPath) {
+      throw new Error('Production build not found. Run npm run build before starting NODE_ENV=production.');
+    }
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

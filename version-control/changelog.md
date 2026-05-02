@@ -4,10 +4,16 @@ Notable product-facing and governance changes. **Canonical numeric SemVer** is `
 
 ## [Unreleased]
 
-### [2026-05-02 01:45:00 LOCAL] [1.0.0] Close M10 release hardening with full-version unification.
+### [2026-05-02 03:08:00 LOCAL] [1.0.0] Production-readiness hardening pass.
+
+- Hardened production runtime in `backend/server.ts`: schema v9 password-hash migration, production seed pruning, env-driven admin bootstrap, `PORT` support, security headers, chargeback admin authorization, and production static-build discovery.
+- Removed committed demo session data from `backend/data/storage.json`, cleared business/admin default login fields, connected withdrawals through `client/services/businessApi.ts`, and added user-visible feedback/empty states in `client/App.tsx` and `admin/AdminWorkbench.tsx`.
+- Replaced template project branding with `le3eb_club` / `LE3EB Club`, removed the stale npm lockfile in favor of the declared pnpm lockfile, and documented production environment requirements in `.env.example` and `README.md`.
+
+### [2026-05-02 01:45:00 LOCAL] [1.0.0] Advance M10 release hardening with full-version unification.
 
 - Promoted product SemVer to `1.0.0` across `version-control/version`, `package.json`, and `client/constants.ts`, and re-validated with `npm run verify:version`.
-- Finalized M10 closure evidence in `version-control/governance/commands/milestones.md` and marked M10 `Closed` in `version-control/governance/commands/implementation-status.md`.
+- Finalized M10 hardening evidence in `version-control/governance/commands/milestones.md` and synchronized `version-control/governance/commands/implementation-status.md` for `1.0.0` release-stage tracking.
 - Completed final M10 gate verification on release version: `npm run validate:gate -- --stage=M10` passed on `react-example@1.0.0`.
 
 ### [2026-05-02 01:38:00 LOCAL] [0.10.1] M10 round-2/3: release-integrity hardening and full regression evidence.

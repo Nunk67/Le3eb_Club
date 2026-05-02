@@ -752,16 +752,16 @@ export default function App() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
   const [cacheSize, setCacheSize] = useState('12.4 MB');
-  const userId = 'user_1'; // Mock current user
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const isAuthenticatedRef = useRef(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
-  const [authEmail, setAuthEmail] = useState('demo@le3eb.club');
-  const [authPassword, setAuthPassword] = useState('demo123');
-  const [authUsername, setAuthUsername] = useState('new_user');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authUsername, setAuthUsername] = useState('');
   const [authStatus, setAuthStatus] = useState('');
+  const [toastMessage, setToastMessage] = useState('');
   const [companionRankings, setCompanionRankings] = useState<CompanionRanking[]>([]);
   const [rankingsLoading, setRankingsLoading] = useState(false);
   const [rankingsError, setRankingsError] = useState('');
@@ -873,6 +873,11 @@ export default function App() {
     setShowAuthModal(true);
   };
 
+  const notify = (message: string) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(''), 3500);
+  };
+
   const requireAuthAction = (statusText?: string) => {
     if (isAuthenticatedRef.current) return true;
     openAuthModal(statusText || t('auth.loginRequired'));
@@ -954,11 +959,11 @@ export default function App() {
         await fetchTransactions();
         navigateTo('WALLET');
       } else if (result.status === 'PENDING') {
-        alert('Payment is being reviewed for risk control. Please check back later.');
+        notify('Payment is being reviewed for risk control. Please check back later.');
         navigateTo('WALLET');
       }
     } catch (err: any) {
-      alert(err.message || 'Recharge failed');
+      notify(err.message || 'Recharge failed');
     } finally {
       setIsRecharging(false);
     }
@@ -982,6 +987,9 @@ export default function App() {
   const [showQuantitySelector, setShowQuantitySelector] = useState(false);
   const [userCoins, setUserCoins] = useState(1250);
   const [userDiamonds, setUserDiamonds] = useState(0);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawAddress, setWithdrawAddress] = useState('');
+  const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
   const [userRole, setUserRole] = useState<'USER' | 'PLAYER'>('USER');
   const [isPlayerOnline, setIsPlayerOnline] = useState(true);
   const [playerApplicationStatus, setPlayerApplicationStatus] = useState<'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'>('NONE');
@@ -1031,6 +1039,36 @@ export default function App() {
       commentInputRef.current.focus();
     }
   }, [currentView, focusCommentInput, selectedPost?.id]);
+
+  const handleWithdrawSubmit = async () => {
+    if (!requireAuthAction(t('auth.loginRequired'))) return;
+    const token = authTokenRef.current;
+    const diamondAmount = Number(withdrawAmount);
+    if (!token) {
+      openAuthModal(t('auth.loginRequired'));
+      return;
+    }
+    if (!Number.isFinite(diamondAmount) || diamondAmount <= 0) {
+      notify('Enter a valid withdrawal amount.');
+      return;
+    }
+    if (!withdrawAddress.trim()) {
+      notify('Enter your payout wallet address.');
+      return;
+    }
+    setWithdrawSubmitting(true);
+    try {
+      await businessApi.createWithdrawRequest(token, diamondAmount, `USDT_TRC20:${withdrawAddress.trim()}`);
+      setWithdrawAmount('');
+      setWithdrawAddress('');
+      notify('Withdrawal request submitted. Please wait for admin approval.');
+      handleBack();
+    } catch (error) {
+      notify((error as Error).message || 'Withdrawal request failed.');
+    } finally {
+      setWithdrawSubmitting(false);
+    }
+  };
   const [moreEPals, setMoreEPals] = useState<EPal[]>(EPALS.filter(e => !e.isLegend));
   const [loadingMore, setLoadingMore] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -4141,10 +4179,12 @@ export default function App() {
                   <div className="relative">
                     <input 
                       type="number" 
+                      value={withdrawAmount}
+                      onChange={(event) => setWithdrawAmount(event.target.value)}
                       placeholder="Min. 50 Diamonds"
                       className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-white font-bold placeholder:text-gray-600 focus:border-purple-500/50 outline-none transition-all"
                     />
-                    <button className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-bold text-purple-400 hover:text-purple-300">MAX</button>
+                    <button type="button" onClick={() => setWithdrawAmount(String(userDiamonds))} className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-bold text-purple-400 hover:text-purple-300">MAX</button>
                   </div>
                 </div>
 
@@ -4152,6 +4192,8 @@ export default function App() {
                   <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] px-2">USDT (TRC-20) Address</p>
                   <input 
                     type="text" 
+                    value={withdrawAddress}
+                    onChange={(event) => setWithdrawAddress(event.target.value)}
                     placeholder="Enter your wallet address"
                     className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-white font-bold placeholder:text-gray-600 focus:border-purple-500/50 outline-none transition-all"
                   />
@@ -4166,13 +4208,11 @@ export default function App() {
               </div>
 
               <button 
-                onClick={() => {
-                  alert('Withdrawal request submitted! Please wait for admin approval.');
-                  handleBack();
-                }}
-                className="w-full py-5 bg-purple-600 rounded-2xl font-black text-white shadow-[0_0_40px_rgba(168,85,247,0.4)] active:scale-95 transition-all uppercase tracking-widest text-xs"
+                onClick={handleWithdrawSubmit}
+                disabled={withdrawSubmitting}
+                className="w-full py-5 bg-purple-600 rounded-2xl font-black text-white shadow-[0_0_40px_rgba(168,85,247,0.4)] active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all uppercase tracking-widest text-xs"
               >
-                Confirm Withdrawal
+                {withdrawSubmitting ? 'Submitting...' : 'Confirm Withdrawal'}
               </button>
             </motion.div>
           )}
@@ -4856,7 +4896,7 @@ export default function App() {
                     <button 
                       onClick={() => {
                         setPlayerApplicationStatus('PENDING');
-                        alert(t('apply.submittedAlert'));
+                        notify(t('apply.submittedAlert'));
                       }}
                       disabled={(() => {
                         if (!playerApplicationData.serviceName || !playerApplicationData.price) return true;
@@ -5169,7 +5209,7 @@ export default function App() {
                     <button 
                       onClick={() => {
                         setCacheSize('0 B');
-                        alert(t('settings.cacheCleared'));
+                        notify(t('settings.cacheCleared'));
                       }}
                       className="w-full flex items-center justify-between p-5 hover:bg-white/5 rounded-2xl transition-all group"
                     >
@@ -5547,7 +5587,7 @@ export default function App() {
 
               <button 
                 onClick={() => {
-                  alert('Profile updated successfully!');
+                  notify('Profile updated successfully.');
                   handleBack();
                 }}
                 className="w-full py-5 bg-purple-600 rounded-2xl font-black text-white shadow-[0_0_40px_rgba(168,85,247,0.4)] active:scale-95 transition-all uppercase tracking-widest text-xs"
@@ -6677,7 +6717,7 @@ export default function App() {
                   <div className="flex gap-3">
                     <button 
                       onClick={() => {
-                        // Mock submit
+                        // Local IM orders are client-side until chat history is promoted to the API.
                         if (selectedOrder) {
                           setImOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, reviewed: true } : o));
                         }
@@ -7236,6 +7276,19 @@ export default function App() {
           </div>
         </nav>
       )}
+
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            className="fixed left-4 right-4 bottom-24 z-[500] rounded-2xl border border-white/10 bg-[#1a0b2e] px-4 py-3 text-sm font-bold text-white"
+          >
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

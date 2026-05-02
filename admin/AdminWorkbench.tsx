@@ -276,8 +276,8 @@ function renderRecordTitle(module: SchemaModule, record: any): string {
 export default function AdminWorkbench() {
   void ADMIN_I18N_PREP_NOTE;
   const { t } = useI18n();
-  const [email, setEmail] = useState('admin@le3eb.club');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [token, setToken] = useState<string | null>(null);
   const [status, setStatus] = useState(t('admin.status.ready'));
   const [dashboard, setDashboard] = useState<any>(null);
@@ -590,6 +590,9 @@ export default function AdminWorkbench() {
         </button>
       </div>
       <div className="md:hidden space-y-2">
+        {(recordsMap[module.key] || []).length === 0 && (
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-gray-400">暂无数据，调整筛选或刷新后重试。</div>
+        )}
         {(recordsMap[module.key] || []).slice(0, 30).map((record: any) => (
           <div key={record.id} className="rounded-2xl border border-white/10 bg-black/20 p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
@@ -671,6 +674,13 @@ export default function AdminWorkbench() {
             </tr>
           </thead>
           <tbody>
+            {(recordsMap[module.key] || []).length === 0 && (
+              <tr>
+                <td colSpan={module.columns.length + 1} className="py-8 px-3 text-center text-gray-400">
+                  暂无数据，调整筛选或刷新后重试。
+                </td>
+              </tr>
+            )}
             {(recordsMap[module.key] || []).slice(0, 30).map((record: any) => (
               <tr key={record.id} className="hover:bg-white/5 transition-colors">
                 {module.columns.map(col => (

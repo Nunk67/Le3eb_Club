@@ -287,7 +287,7 @@ Required per-phase closure steps:
   - Latest result: `passed` (`react-example@0.8.1`)
 - **Closure decision**:
   - Decision: `Not closed`
-  - Risks/notes: M8 scope includes admin operations depth **and** deferred client i18n completion (`P6-2b`) plus admin localization (`P6-3`) and backend error-code-first migration (`P6-4`) per phase plan. **Wrap-up update completed**: remaining companion/review/admin legacy backend error-string responses were moved to `sendError(...)`; admin run-operation labels and error fallbacks are key-based (`admin.ops.*`, `admin.status.*`); additional client edge-copy around profile follow/ID/follower text and no-post state is now dictionary-driven. Remaining M8 gaps are broader admin table/forms full-surface localization and optional non-critical client copy polish.
+  - Risks/notes: M8 scope includes admin operations depth **and** deferred client i18n completion (`P6-2b`) plus admin localization (`P6-3`) and backend error-code-first migration (`P6-4`) per phase plan. **Wrap-up update completed**: remaining companion/review/admin legacy backend error-string responses were moved to `sendError(...)`; admin run-operation labels and error fallbacks are key-based (`admin.ops.*`, `admin.status.*`); additional client edge-copy around profile follow/ID/follower text and no-post state is now dictionary-driven. Production-readiness pass removed prefilled admin credentials and added empty-state polish for core admin tables. Remaining M8 gaps are broader admin table/forms full-surface localization and optional non-critical client copy polish.
 
 ### M9 full-system integration audit stub
 
@@ -303,12 +303,12 @@ Required per-phase closure steps:
   - Latest result: `passed` (`react-example@0.8.1`)
 - **Closure decision**:
   - Decision: `Not closed`
-  - Risks/notes: M9 kickoff round-1 baseline is established with a green gate snapshot and first integration hardening pass completed (business auth boundary consistency on wallet/recharge). Remaining integration gaps focus on broader end-user coverage for withdrawal/report submission surfaces and deeper cross-domain scenario evidence beyond static gate checks.
+  - Risks/notes: M9 kickoff round-1 baseline is established with a green gate snapshot and first integration hardening pass completed (business auth boundary consistency on wallet/recharge). Production-readiness pass added business withdrawal request integration and admin-only chargeback handling. Remaining integration gaps focus on deeper cross-domain scenario evidence beyond static gate checks.
 
 ### M10 release hardening audit stub
 
 - **Milestone**: `M10` (`1.0.0`)
-- **Current status**: `Closed`
+- **Current status**: `Partial`
 - **Primary evidence**:
   - `.github/workflows/ci.yml` (full-system CI gate + release-integrity parity step)
   - `scripts/validate-gate.mjs` (M10 stage gate orchestration includes `validate:release-integrity`)
@@ -316,12 +316,13 @@ Required per-phase closure steps:
   - `version-control/scripts/verify-version.mjs` (version consistency guardrail)
   - `version-control/version` + `package.json` + `client/constants.ts` (SemVer unified at `1.0.0`)
   - `version-control/changelog.md` + `version-control/governance/commands/implementation-status.md` (closure evidence trace)
+  - `.env.example` + `README.md` (production bootstrap, port, seed, and storage limitations)
 - **Gate proof**:
   - Required command: `npm run validate:gate -- --stage=M10`
   - Latest result: `passed` (`react-example@1.0.0`)
 - **Closure decision**:
-  - Decision: `Closed`
-  - Risks/notes: M10 round-1~round-4 sequence is completed with release-integrity hardening, full regression evidence, and final SemVer closure at `1.0.0`.
+  - Decision: `Not closed`
+  - Risks/notes: M10 hardening baseline and release-version verification are complete. Production-readiness pass addressed template branding, stale lockfile duplication, password-hash migration, production seed pruning, env-driven admin bootstrap, production static path discovery, and chargeback authorization. Final closure remains deferred until verification rerun and predecessor milestones (`M7`/`M8`/`M9`) are reconciled to satisfy the strict sequential milestone rule.
 
 ## i18n rollout (phase plan)
 
