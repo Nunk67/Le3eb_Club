@@ -186,7 +186,7 @@ export interface RechargeOrder {
 export interface WalletTransaction {
   id: string;
   userId?: string;
-  type: 'RECHARGE' | 'ORDER_PAY' | 'REFUND' | 'ADMIN_ADJUST' | 'EXCHANGE' | 'WITHDRAW' | 'INCOME';
+  type: 'RECHARGE' | 'ORDER_PAY' | 'REFUND' | 'ADMIN_ADJUST' | 'EXCHANGE' | 'WITHDRAW' | 'INCOME' | 'GIFT_PAY';
   amount: number; // Coins or Diamonds
   balanceAfter?: number;
   referenceId?: string; // Order ID or Recharge ID

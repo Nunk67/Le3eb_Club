@@ -1,0 +1,18 @@
+{
+  "prev": { "level": 2, "score": 95, "consecutiveL1Weeks": 0, "noOrderWeeks": 0, "suspended": false, "justLeveledUpLastWeek": false },
+  "stats": {
+    "loginDays": 7,
+    "posts": 5,
+    "greetings": 20,
+    "responseRatePct": 95,
+    "acceptanceRatePct": 90,
+    "newUsersServed": 5,
+    "repeatUsersServed": 3,
+    "ratingAvg": 4.9,
+    "giftIncomeUsd": 50,
+    "totalIncomeUsd": 300,
+    "badReviewCount": 0,
+    "violationCount": 0
+  },
+  "expected": { "scoreMin": 100, "activityScoreMin": 10 }
+}

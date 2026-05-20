@@ -1,0 +1,9 @@
+{
+  "candidates": [
+    { "companionId": "a", "level": 6, "impressions24h": 2, "clicks24h": 5, "completedOrders30d": 10, "avgRating": 4.8, "activityScore": 80, "orderRecencyHours": 12, "availability": "ONLINE" },
+    { "companionId": "b", "level": 5, "impressions24h": 1, "clicks24h": 3, "completedOrders30d": 8, "avgRating": 4.5, "activityScore": 60, "orderRecencyHours": 24, "availability": "ONLINE" },
+    { "companionId": "c", "level": 3, "impressions24h": 0, "clicks24h": 2, "completedOrders30d": 4, "avgRating": 4.2, "activityScore": 40, "orderRecencyHours": 48, "availability": "ONLINE" }
+  ],
+  "ctx": { "weights": { "wOrder": 0.4, "wRating": 0.35, "wActive": 0.25, "wBizGlobal": 0.15 }, "nowSeed": 42 },
+  "limit": 2
+}

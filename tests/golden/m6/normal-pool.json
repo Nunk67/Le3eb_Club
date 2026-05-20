@@ -1,0 +1,8 @@
+{
+  "candidates": [
+    { "companionId": "n1", "level": 3, "impressions24h": 10, "clicks24h": 4, "completedOrders30d": 5, "avgRating": 4.3, "activityScore": 50, "orderRecencyHours": 36, "availability": "ONLINE" },
+    { "companionId": "n2", "level": 4, "impressions24h": 8, "clicks24h": 6, "completedOrders30d": 7, "avgRating": 4.6, "activityScore": 55, "orderRecencyHours": 20, "availability": "ONLINE" }
+  ],
+  "ctx": { "weights": { "wOrder": 0.4, "wRating": 0.35, "wActive": 0.25, "wBizGlobal": 0.15 }, "nowSeed": 7 },
+  "limit": 2
+}

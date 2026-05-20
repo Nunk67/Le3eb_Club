@@ -12,7 +12,8 @@ le3eb_club 致力于打造一个稳定、健康、可持续的游戏陪伴社区
 - **交易与钱包能力**：订单创建、支付回调模拟、人工审核与拒付、资金相关链路管理。
 - **管理后台能力**：陪玩/订单/评价/风控审核与查询，财务对账摘要，审计导出，列表筛选/排序/分页。
 - **运营能力**：用户与资产管理、提现与举报审核、多维报表、陪玩服务与定价调整。
-- **数据持久化能力**：本地 JSON 存储，支持启动时迁移与异常数据净化。
+- **数据持久化能力**：本地 JSON 存储（schema v11），支持启动时迁移与异常数据净化；Postgres/Prisma 迁移脚本已预留，需配置真实 `DATABASE_URL` 后启用。
+- **支付校验**：开发环境使用 `sandbox` 验单；App Store / Google Play 真实 HTTP 与生产 S3 需凭据到位后再接。
 
 ## 项目架构
 
@@ -32,10 +33,9 @@ le3eb_club 致力于打造一个稳定、健康、可持续的游戏陪伴社区
 
 ```text
 le3eb_club/
+|admin/
+|app\applet/
 ├── backend/
-│   ├── server.ts
-│   └── data/
-│       └── storage.json
 ├── client/
 ├── admin/
 ├── shared/
@@ -78,11 +78,9 @@ npm run dev
 - 默认仓库数据不包含可登录演示账号；本地开发可通过默认开发种子快速验证，生产环境不要启用 `ALLOW_DEMO_SEED`。
 - `backend/data/storage.json` 适合单机预备上线和验收，不适合作为长期多实例生产数据库；正式放量前应迁移到托管数据库并配置备份。
 
-### 上线前门禁
+### 上线前检查
 
 ```bash
 npm run lint
 npm run build
-npm run validate:all
-npm run validate:release-integrity
 ```

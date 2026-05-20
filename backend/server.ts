@@ -4,23 +4,58 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import { 
-  RechargePackage, 
-  RechargeOrder, 
-  Wallet, 
-  WalletTransaction 
+import helmet from 'helmet';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import {
+  RechargePackage,
+  RechargeOrder,
+  Wallet,
+  WalletTransaction
 } from '../shared/types.js';
+import { loadEnv } from './config/env.js';
+import { logger } from './logging/logger.js';
+import { computeWithdraw, MONEY_POLICY, assertRateInLevelBand, validateLevelingConfig } from './policy/index.js';
+import { levelFromHourlyRate } from './policy/leveling.js';
+import { rankCompanions } from './algo/m6Exposure.js';
+import { hashPassword as hashPasswordArgon, verifyPassword as verifyPasswordArgon } from './auth/password.js';
+import { signAccessToken, verifyAccessToken, issueRefreshToken, rotateRefreshToken, revokeRefreshToken } from './auth/tokens.js';
+import { getCache } from './cache/redis.js';
+import { metricsMiddleware, register as metricsRegister, withdrawPendingCount } from './observability/metrics.js';
+import { zValidate } from './middleware/validate.js';
+import {
+  RegisterBodySchema,
+  LoginBodySchema,
+  CompanionApplySchema,
+  CreateOrderSchema,
+  ExposureBatchSchema,
+  AdminOperatorPatchSchema
+} from '../shared/schemas.js';
+import { resolveObjectStore, validateUploadMime } from './storage/objectStore.js';
+import { startSettlementCron } from './jobs/settlementCron.js';
+import {
+  registerOpsRoutes,
+  aggregateDashboardMetrics,
+  type CouponTemplate,
+  type CouponGrant,
+  type DeviceBan,
+  type ExposureLog,
+  type SupportTicket,
+  isDeviceBanned,
+} from './routes/ops.js';
+import { getPaymentVerifier, verifyPaymentIdempotent } from './payments/verifier.js';
+import { initSentry } from './observability/sentry.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'storage.json');
-const STORAGE_SCHEMA_VERSION = 9;
+const STORAGE_SCHEMA_VERSION = 11;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 type UserRole = 'USER' | 'PLAYER' | 'ADMIN';
 type AccountStatus = 'ACTIVE' | 'FROZEN' | 'RISK_HOLD';
-type BanModuleKey = 'ORDER' | 'ACCEPT_ORDER' | 'RECHARGE' | 'WITHDRAW' | 'CHAT' | 'POST';
+type BanModuleKey = 'ORDER' | 'ACCEPT_ORDER' | 'RECHARGE' | 'WITHDRAW' | 'PRIVATE_CHAT' | 'GROUP_CHAT' | 'POST';
 type AdminPermission =
   | 'COMPANION_REVIEW'
   | 'ORDER_OPERATE'
@@ -166,6 +201,11 @@ type PersistedState = {
   }>;
   withdrawalRequests: WithdrawalRequest[];
   moderationReports: ModerationReport[];
+  couponTemplates: CouponTemplate[];
+  couponGrants: CouponGrant[];
+  deviceBans: DeviceBan[];
+  exposureLogs: ExposureLog[];
+  tickets: SupportTicket[];
 };
 
 const hashPassword = (password: string, salt = crypto.randomBytes(16).toString('hex')) => {
@@ -203,7 +243,12 @@ const defaultState = (): PersistedState => ({
   riskEvents: [],
   auditLogs: [],
   withdrawalRequests: [],
-  moderationReports: []
+  moderationReports: [],
+  couponTemplates: [],
+  couponGrants: [],
+  deviceBans: [],
+  exposureLogs: [],
+  tickets: [],
 });
 
 const migrateState = (raw: unknown): PersistedState => {
@@ -261,12 +306,12 @@ const migrateState = (raw: unknown): PersistedState => {
   // v4 -> v5: bootstrap admin domain state and permissions.
     if (merged.schemaVersion < 5) {
     const adminExists = merged.users.some(user => user.role === 'ADMIN');
-    if (!IS_PRODUCTION && !adminExists) {
+    if (!IS_PRODUCTION && !adminExists && process.env.ALLOW_DEMO_SEED === 'true') {
       merged.users.push({
         id: 'admin_1',
         username: 'ops_admin',
-        email: 'admin@le3eb.club',
-        passwordHash: hashPassword('admin123'),
+        email: process.env.ADMIN_EMAIL || 'admin@le3eb.club',
+        passwordHash: hashPassword(process.env.ADMIN_PASSWORD || 'demo-seed-change-me'),
         role: 'ADMIN',
         permissions: ['COMPANION_REVIEW', 'ORDER_OPERATE', 'REVIEW_MODERATE', 'RISK_REVIEW', 'FINANCE_RECON', 'RECHARGE_MANUAL'],
         createdAt: Date.now()
@@ -340,6 +385,27 @@ const migrateState = (raw: unknown): PersistedState => {
     merged.schemaVersion = 9;
   }
 
+  if (merged.schemaVersion < 10) {
+    for (const u of merged.users) {
+      const bm = u.banModules as Record<string, boolean> | undefined;
+      if (bm?.CHAT) {
+        bm.PRIVATE_CHAT = true;
+        bm.GROUP_CHAT = true;
+        delete bm.CHAT;
+      }
+    }
+    merged.schemaVersion = 10;
+  }
+
+  if (merged.schemaVersion < 11) {
+    if (!Array.isArray((merged as PersistedState).couponTemplates)) (merged as PersistedState).couponTemplates = [];
+    if (!Array.isArray((merged as PersistedState).couponGrants)) (merged as PersistedState).couponGrants = [];
+    if (!Array.isArray((merged as PersistedState).deviceBans)) (merged as PersistedState).deviceBans = [];
+    if (!Array.isArray((merged as PersistedState).exposureLogs)) (merged as PersistedState).exposureLogs = [];
+    if (!Array.isArray((merged as PersistedState).tickets)) (merged as PersistedState).tickets = [];
+    merged.schemaVersion = 11;
+  }
+
   /** 若持久化文件里 users 被写成 [] 或损坏，避免后台「用户管理」全空 */
   if (!IS_PRODUCTION && (!Array.isArray(merged.users) || merged.users.length === 0)) {
     merged.users = structuredClone(base.users);
@@ -373,15 +439,34 @@ const loadState = (): PersistedState => {
 };
 
 async function startServer() {
+  const env = loadEnv();
+  await initSentry();
+  validateLevelingConfig();
   const app = express();
-  const PORT = Number(process.env.PORT || 3000);
-
-  app.use(express.json());
-  app.use((_, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Referrer-Policy', 'no-referrer');
-    next();
+  const PORT = env.PORT;
+  let shuttingDown = false;
+  app.set('trust proxy', 1);
+  app.use(helmet({ contentSecurityPolicy: env.NODE_ENV === 'production' }));
+  const allowlist = (process.env.CORS_ALLOWLIST || 'http://localhost:3000,http://localhost:5173').split(',').map(s => s.trim());
+  app.use(cors({ origin: allowlist, credentials: true }));
+  app.use(rateLimit({ windowMs: 60_000, max: 600, skip: req => ['/healthz', '/ready', '/metrics'].includes(req.path) }));
+  app.use(metricsMiddleware());
+  app.use(express.json({ limit: '1mb' }));
+  app.get('/healthz', (_req, res) => res.json({ ok: true, t: Date.now() }));
+  app.get('/ready', async (_req, res) => {
+    if (shuttingDown) return res.status(503).json({ ok: false, shuttingDown: true });
+    try {
+      await getCache().ping();
+      const store = resolveObjectStore();
+      const s3ok = await store.ping();
+      res.json({ ok: true, redis: true, s3: s3ok, pg: Boolean(env.DATABASE_URL) });
+    } catch {
+      res.status(503).json({ ok: false });
+    }
+  });
+  app.get('/metrics', async (_req, res) => {
+    res.setHeader('Content-Type', metricsRegister.contentType);
+    res.end(await metricsRegister.metrics());
   });
 
   // --- Runtime data ---
@@ -412,6 +497,11 @@ async function startServer() {
     if (!Array.isArray(s.auditLogs)) (s as any).auditLogs = [];
     if (!Array.isArray((s as any).withdrawalRequests)) (s as any).withdrawalRequests = [];
     if (!Array.isArray((s as any).moderationReports)) (s as any).moderationReports = [];
+    if (!Array.isArray((s as any).couponTemplates)) (s as any).couponTemplates = [];
+    if (!Array.isArray((s as any).couponGrants)) (s as any).couponGrants = [];
+    if (!Array.isArray((s as any).deviceBans)) (s as any).deviceBans = [];
+    if (!Array.isArray((s as any).exposureLogs)) (s as any).exposureLogs = [];
+    if (!Array.isArray((s as any).tickets)) (s as any).tickets = [];
     if (!s.sessions || typeof s.sessions !== 'object' || Array.isArray(s.sessions)) (s as any).sessions = {};
   };
   sanitizePersistedState(state);
@@ -427,6 +517,13 @@ async function startServer() {
   const users = state.users;
   const sessions: Record<string, { token: string; userId: string; expiresAt: number }> = state.sessions;
   const companions = state.companions;
+  const exposureImpressions24h = new Map<string, number>();
+  const exposureClicks24h = new Map<string, number>();
+  const couponTemplates: CouponTemplate[] = state.couponTemplates;
+  const couponGrants: CouponGrant[] = state.couponGrants;
+  const deviceBans: DeviceBan[] = state.deviceBans;
+  const exposureLogs: ExposureLog[] = state.exposureLogs;
+  const tickets: SupportTicket[] = state.tickets;
   const orders: Array<{
     id: string;
     userId: string;
@@ -491,7 +588,12 @@ async function startServer() {
           riskEvents,
           auditLogs,
           withdrawalRequests,
-          moderationReports
+          moderationReports,
+          couponTemplates,
+          couponGrants,
+          deviceBans,
+          exposureLogs,
+          tickets,
         } satisfies PersistedState,
         null,
         2
@@ -518,7 +620,7 @@ async function startServer() {
   };
   pruneProductionSeedAccounts();
 
-  const ensureAdminSeed = () => {
+  const ensureAdminSeed = async () => {
     const existingAdmin = users.find(user => user.role === 'ADMIN');
     if (existingAdmin) {
       normalizeUserPassword(existingAdmin);
@@ -534,7 +636,11 @@ async function startServer() {
     const adminEmail = process.env.ADMIN_EMAIL;
     const adminPassword = process.env.ADMIN_PASSWORD;
     if (IS_PRODUCTION && (!adminEmail || !adminPassword)) {
-      console.warn('No admin user exists. Set ADMIN_EMAIL and ADMIN_PASSWORD once to bootstrap production admin access.');
+      logger.warn('admin_seed_skipped_set_ADMIN_EMAIL_and_ADMIN_PASSWORD');
+      return;
+    }
+    if (!adminEmail || !adminPassword) {
+      logger.warn('admin_seed_skipped_missing_env');
       return;
     }
     const now = Date.now();
@@ -542,7 +648,7 @@ async function startServer() {
       id: 'admin_1',
       username: 'ops_admin',
       email: adminEmail || 'admin@le3eb.club',
-      passwordHash: hashPassword(adminPassword || 'admin123'),
+      passwordHash: await hashPasswordArgon(adminPassword),
       role: 'ADMIN',
       adminRoleTemplate: 'SUPER_ADMIN',
       permissions: [...ROLE_TEMPLATES.SUPER_ADMIN],
@@ -555,7 +661,7 @@ async function startServer() {
     persistState();
     console.log(`Admin seed user restored: ${adminEmail || 'admin@le3eb.club'}`);
   };
-  ensureAdminSeed();
+  await ensureAdminSeed();
 
   /** Keep local development usable without shipping demo credentials to production. */
   const ensureDemoBusinessUser = () => {
@@ -813,9 +919,17 @@ async function startServer() {
       legacyError: message
     });
   };
-  const authMiddleware: express.RequestHandler = (req, res, next) => {
+  const authMiddleware: express.RequestHandler = async (req, res, next) => {
     const raw = req.headers.authorization || '';
     const token = raw.startsWith('Bearer ') ? raw.slice(7) : '';
+    if (token.includes('.')) {
+      const payload = await verifyAccessToken(token);
+      if (payload) {
+        (req as any).authUserId = payload.sub;
+        (req as any).authUser = getUserById(payload.sub) || null;
+        return next();
+      }
+    }
     const session = sessions[token];
     if (!session || session.expiresAt < Date.now()) {
       return sendError(res, 401, 'AUTH_UNAUTHORIZED', 'Unauthorized');
@@ -838,25 +952,26 @@ async function startServer() {
   };
 
   // --- API Routes ---
-  app.post('/api/auth/register', (req, res) => {
-    const { username, email, password } = req.body || {};
-    if (!username || !email || !password) {
-      return sendError(res, 400, 'AUTH_REGISTER_FIELDS_REQUIRED', 'username/email/password required');
+  app.post('/api/auth/register', zValidate(RegisterBodySchema), async (req, res) => {
+    const body = (req as express.Request & { validatedBody: { username: string; email: string; password: string; deviceId?: string } }).validatedBody;
+    if (isDeviceBanned(deviceBans, body.deviceId)) {
+      return sendError(res, 403, 'DEVICE_BANNED', 'Device is banned');
     }
-    if (users.some(u => u.email === email)) {
+    if (users.some(u => u.email === body.email)) {
       return sendError(res, 409, 'AUTH_EMAIL_EXISTS', 'Email already exists');
     }
     const user = {
       id: `user_${Math.random().toString(36).slice(2, 9)}`,
-      username,
-      email,
-      passwordHash: hashPassword(password),
+      username: body.username,
+      email: body.email,
+      passwordHash: await hashPasswordArgon(body.password),
       role: 'USER' as const,
       createdAt: Date.now(),
       gender: 'U' as const,
       accountStatus: 'ACTIVE' as const,
       followCount: 0,
-      lastLoginAt: Date.now()
+      lastLoginAt: Date.now(),
+      deviceId: body.deviceId
     };
     users.push(user);
     wallets[user.id] = { userId: user.id, balance: 0, lastUpdated: Date.now() };
@@ -864,22 +979,62 @@ async function startServer() {
     res.status(201).json({ id: user.id, username: user.username, email: user.email, role: user.role });
   });
 
-  app.post('/api/auth/login', (req, res) => {
-    const { email, password } = req.body || {};
-    const user = users.find(u => u.email === email);
+  app.post('/api/auth/login', zValidate(LoginBodySchema), async (req, res) => {
+    const body = (req as express.Request & { validatedBody: { email: string; password: string; deviceId?: string } }).validatedBody;
+    if (isDeviceBanned(deviceBans, body.deviceId)) {
+      return sendError(res, 403, 'DEVICE_BANNED', 'Device is banned');
+    }
+    const user = users.find(u => u.email === body.email);
     if (user && !user.passwordHash && user.password) {
       normalizeUserPassword(user);
       persistState();
     }
-    if (!user || !verifyPassword(String(password || ''), user.passwordHash)) {
+    if (!user || !user.passwordHash) {
       return sendError(res, 401, 'AUTH_INVALID_CREDENTIALS', 'Invalid credentials');
     }
+    const verified = await verifyPasswordArgon(body.password, user.passwordHash);
+    if (!verified.valid) {
+      return sendError(res, 401, 'AUTH_INVALID_CREDENTIALS', 'Invalid credentials');
+    }
+    if (verified.needsRehash) {
+      user.passwordHash = await hashPasswordArgon(body.password);
+    }
+    if (body.deviceId) user.deviceId = body.deviceId;
     user.lastLoginAt = Date.now();
     persistState();
-    const token = createToken();
-    sessions[token] = { token, userId: user.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 };
+    const access = signAccessToken(user.id, user.role as 'USER' | 'PLAYER' | 'ADMIN');
+    const refresh = await issueRefreshToken(user.id);
+    const legacyToken = createToken();
+    sessions[legacyToken] = { token: legacyToken, userId: user.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 };
     persistState();
-    res.json({ token, user: toPublicUser(user) });
+    res.json({
+      token: access.token,
+      refreshToken: refresh.refreshToken,
+      legacyToken,
+      user: toPublicUser(user)
+    });
+  });
+
+  app.post('/api/auth/refresh', async (req, res) => {
+    const refreshToken = String(req.body?.refreshToken || '');
+    const rotated = await rotateRefreshToken(refreshToken);
+    if (!rotated) return sendError(res, 401, 'AUTH_REFRESH_INVALID', 'Invalid refresh token');
+    const user = getUserById(rotated.userId);
+    if (!user) return sendError(res, 401, 'AUTH_USER_NOT_FOUND', 'User not found');
+    const access = signAccessToken(user.id, user.role as 'USER' | 'PLAYER' | 'ADMIN');
+    res.json({ token: access.token, refreshToken: rotated.refreshToken });
+  });
+
+  app.post('/api/auth/logout', authMiddleware, async (req, res) => {
+    const raw = req.headers.authorization || '';
+    const token = raw.startsWith('Bearer ') ? raw.slice(7) : '';
+    if (token && sessions[token]) {
+      delete sessions[token];
+      persistState();
+    }
+    const refreshToken = String(req.body?.refreshToken || '');
+    if (refreshToken) await revokeRefreshToken(refreshToken);
+    res.json({ ok: true });
   });
 
   app.get('/api/auth/session', authMiddleware, (req, res) => {
@@ -890,21 +1045,13 @@ async function startServer() {
     res.json(toPublicUser(user));
   });
 
-  app.post('/api/auth/logout', authMiddleware, (req, res) => {
-    const raw = req.headers.authorization || '';
-    const token = raw.startsWith('Bearer ') ? raw.slice(7) : '';
-    if (token && sessions[token]) {
-      delete sessions[token];
-      persistState();
-    }
-    res.json({ ok: true });
-  });
-
-  app.post('/api/companions/apply', authMiddleware, (req, res) => {
+  app.post('/api/companions/apply', authMiddleware, zValidate(CompanionApplySchema), (req, res) => {
     const userId = (req as any).authUserId as string;
-    const { gameName, intro, hourlyRate } = req.body || {};
-    if (!gameName || !intro || typeof hourlyRate !== 'number') {
-      return sendError(res, 400, 'COMPANION_APPLY_FIELDS_REQUIRED', 'gameName/intro/hourlyRate required');
+    const { gameName, intro, hourlyRate } = (req as express.Request & { validatedBody: { gameName: string; intro: string; hourlyRate: number } }).validatedBody;
+    const level = levelFromHourlyRate(hourlyRate);
+    const band = assertRateInLevelBand(level, hourlyRate);
+    if (!band.ok) {
+      return sendError(res, 422, 'PRICE_OUT_OF_LEVEL_BAND', 'hourlyRate out of level band', { band: band.band, level });
     }
     const existing = companions.find(c => c.userId === userId);
     if (existing) {
@@ -955,90 +1102,143 @@ async function startServer() {
   app.get('/api/companions/rankings', (req, res) => {
     const limitRaw = Number(req.query.limit || 20);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, Math.floor(limitRaw))) : 20;
-
-    const rankingRows = companions
+    const ctx = {
+      viewerCountry: String(req.query.country || ''),
+      weights: { wOrder: 0.4, wRating: 0.35, wActive: 0.25, wBizGlobal: 0.15 },
+      nowSeed: Math.floor(Date.now() / 3_600_000),
+    };
+    const candidates = companions
       .filter(c => c.status === 'APPROVED')
       .map(companion => {
         const companionOrders = orders.filter(o => o.companionId === companion.id);
         const completedOrders = companionOrders.filter(o => o.status === 'COMPLETED');
-        const disputedOrders = companionOrders.filter(o => o.status === 'DISPUTED');
         const companionReviews = reviews.filter(r => r.companionId === companion.id && r.status === 'APPROVED');
-
         const completedOrderCount = completedOrders.length;
         const avgRating = companionReviews.length > 0
           ? companionReviews.reduce((sum, review) => sum + review.rating, 0) / companionReviews.length
           : 0;
-        const totalRevenue = completedOrders.reduce((sum, order) => sum + order.totalPrice, 0);
-        const totalOrderCount = companionOrders.length;
-        const completionRate = totalOrderCount > 0 ? completedOrderCount / totalOrderCount : 0;
-
-        const scoreBreakdown = {
-          quality: Number((avgRating * 0.55).toFixed(4)),
-          volume: Number((completedOrderCount * 0.25).toFixed(4)),
-          fulfillment: Number((completionRate * 100 * 0.15).toFixed(4)),
-          revenue: Number((totalRevenue * 0.0005).toFixed(4)),
-          riskPenalty: Number((disputedOrders.length * 0.5).toFixed(4))
-        };
-        const poolTag = completedOrderCount >= 20
-          ? 'HIGH_PERFORMING'
-          : completedOrderCount >= 5
-            ? 'STABLE'
-            : 'NEW';
-
-        // Composite score keeps ranking deterministic across low/high volume companions.
-        const rankingScore = Number(
-          (
-            scoreBreakdown.quality +
-            scoreBreakdown.volume +
-            scoreBreakdown.fulfillment +
-            scoreBreakdown.revenue -
-            scoreBreakdown.riskPenalty
-          ).toFixed(4)
-        );
-
+        const lastCompleted = completedOrders.reduce((max, o) => Math.max(max, o.completedAt || 0), 0);
+        const orderRecencyHours = lastCompleted ? (Date.now() - lastCompleted) / 3_600_000 : 9999;
         return {
           companionId: companion.id,
-          gameName: companion.gameName,
-          hourlyRate: companion.hourlyRate,
+          level: levelFromHourlyRate(companion.hourlyRate),
+          impressions24h: exposureImpressions24h.get(companion.id) || 0,
+          clicks24h: exposureClicks24h.get(companion.id) || 0,
+          completedOrders30d: completedOrderCount,
+          avgRating,
+          activityScore: Math.min(150, completedOrderCount * 3),
+          orderRecencyHours,
           availability: companion.availability,
-          avgRating: Number(avgRating.toFixed(2)),
-          completedOrderCount,
-          reviewCount: companionReviews.length,
-          completionRate: Number(completionRate.toFixed(4)),
-          totalRevenue,
-          rankingScore,
-          poolTag,
-          scoreBreakdown
+          _companion: companion,
+          _completedOrderCount: completedOrderCount,
+          _companionReviews: companionReviews,
+          _companionOrders: companionOrders,
         };
-      })
-      .sort((a, b) => b.rankingScore - a.rankingScore || b.completedOrderCount - a.completedOrderCount || b.avgRating - a.avgRating);
-
-    const ranked = rankingRows.slice(0, limit).map((row, index) => ({
-      rank: index + 1,
-      ...row
-    }));
-
+      });
+    const rankedCore = rankCompanions(
+      candidates.map(({ _companion, _completedOrderCount, _companionReviews, _companionOrders, ...c }) => c),
+      ctx,
+      limit
+    );
+    const ranked = rankedCore.map(row => {
+      const src = candidates.find(c => c.companionId === row.companionId)!;
+      const companion = src._companion;
+      const completedOrderCount = src._completedOrderCount;
+      const companionReviews = src._companionReviews;
+      const totalOrderCount = src._companionOrders.length;
+      const completionRate = totalOrderCount > 0 ? completedOrderCount / totalOrderCount : 0;
+      const totalRevenue = src._companionOrders
+        .filter(o => o.status === 'COMPLETED')
+        .reduce((sum, order) => sum + order.totalPrice, 0);
+      const disputed = src._companionOrders.filter(o => o.status === 'DISPUTED').length;
+      const avgRating = companionReviews.length > 0
+        ? companionReviews.reduce((sum, review) => sum + review.rating, 0) / companionReviews.length
+        : 0;
+      const poolTag = row.pool === 'FEATURED' ? 'HIGH_PERFORMING' as const : row.pool === 'NORMAL' ? 'STABLE' as const : 'NEW' as const;
+      return {
+        rank: row.rank,
+        companionId: companion.id,
+        gameName: companion.gameName,
+        hourlyRate: companion.hourlyRate,
+        availability: companion.availability,
+        avgRating: Number(avgRating.toFixed(2)),
+        completedOrderCount,
+        reviewCount: companionReviews.length,
+        completionRate: Number(completionRate.toFixed(4)),
+        totalRevenue,
+        rankingScore: row.finalScore,
+        poolTag,
+        scoreBreakdown: {
+          quality: Number((row.breakdown.lf || 0).toFixed(4)),
+          volume: Number((row.breakdown.business || 0).toFixed(4)),
+          fulfillment: Number((row.breakdown.personalization || 0).toFixed(4)),
+          revenue: Number((row.breakdown.exposureFactor || 0).toFixed(4)),
+          riskPenalty: Number((disputed * 0.5).toFixed(4)),
+        },
+      };
+    });
     res.json(ranked);
   });
 
-  app.post('/api/orders', authMiddleware, (req, res) => {
+  app.post('/api/exposure/batch', (req, res) => {
+    const parsed = ExposureBatchSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(res, 400, 'INPUT_INVALID', 'Invalid exposure batch');
+    }
+    const viewerId = (req.headers['x-viewer-id'] as string) || undefined;
+    for (const ev of parsed.data.events) {
+      if (ev.type === 'impression') {
+        exposureImpressions24h.set(ev.companionId, (exposureImpressions24h.get(ev.companionId) || 0) + 1);
+      } else if (ev.type === 'click') {
+        exposureClicks24h.set(ev.companionId, (exposureClicks24h.get(ev.companionId) || 0) + 1);
+      }
+      exposureLogs.push({
+        id: `exp_${Math.random().toString(36).slice(2, 9)}`,
+        companionId: ev.companionId,
+        viewerId,
+        eventType: ev.type,
+        createdAt: ev.ts || Date.now(),
+      });
+    }
+    if (parsed.data.events.length > 0) persistState();
+    res.json({ ok: true, accepted: parsed.data.events.length });
+  });
+
+  app.post('/api/orders', authMiddleware, zValidate(CreateOrderSchema), (req, res) => {
     const userId = (req as any).authUserId as string;
     const buyer = getUserById(userId);
     const ban = getBanError(buyer, 'ORDER');
     if (ban) return sendError(res, 403, 'ORDER_ACTION_BLOCKED', ban);
-    const { companionId, serviceName, quantity } = req.body || {};
-    const companion = companions.find(c => c.id === companionId && c.status === 'APPROVED');
+    const body = (req as express.Request & { validatedBody: { companionId: string; serviceName?: string; quantity: number; couponGrantId?: string } }).validatedBody;
+    const companion = companions.find(c => c.id === body.companionId && c.status === 'APPROVED');
     if (!companion) return sendError(res, 404, 'ORDER_COMPANION_NOT_FOUND', 'Companion not found');
     if (companion.availability !== 'ONLINE') return sendError(res, 409, 'ORDER_COMPANION_UNAVAILABLE', 'Companion unavailable');
-    const qty = Number(quantity || 1);
-    const totalPrice = companion.hourlyRate * qty;
+    const level = levelFromHourlyRate(companion.hourlyRate);
+    const priceBand = assertRateInLevelBand(level, companion.hourlyRate);
+    if (!priceBand.ok) {
+      return sendError(res, 422, 'PRICE_OUT_OF_LEVEL_BAND', 'Companion price out of level band', { band: priceBand.band });
+    }
+    const qty = body.quantity;
+    let totalPrice = companion.hourlyRate * qty;
+    let couponGrant: CouponGrant | undefined;
+    if (body.couponGrantId) {
+      couponGrant = couponGrants.find(g => g.id === body.couponGrantId && g.userId === userId);
+      if (!couponGrant || couponGrant.status !== 'ACTIVE' || couponGrant.expiresAt < Date.now()) {
+        return sendError(res, 400, 'COUPON_INVALID', 'Coupon grant invalid');
+      }
+      const tpl = couponTemplates.find(t => t.id === couponGrant!.templateId);
+      if (!tpl) return sendError(res, 400, 'COUPON_TEMPLATE_MISSING', 'Coupon template missing');
+      if (totalPrice < tpl.minSpend) return sendError(res, 400, 'COUPON_MIN_SPEND', 'Order below coupon minimum');
+      const discount = tpl.type === 'FIXED' ? tpl.value : Math.min(totalPrice, totalPrice * (tpl.value / 100));
+      totalPrice = Math.max(0, Math.round((totalPrice - discount) * 100) / 100);
+    }
     const userWallet = getWallet(userId);
     if (userWallet.balance < totalPrice) return sendError(res, 409, 'WALLET_INSUFFICIENT_BALANCE', 'Insufficient wallet balance');
     const order = {
       id: `ord_${Math.random().toString(36).slice(2, 9)}`,
       userId,
-      companionId,
-      serviceName: serviceName || companion.gameName,
+      companionId: body.companionId,
+      serviceName: body.serviceName || companion.gameName,
       quantity: qty,
       unitPrice: companion.hourlyRate,
       totalPrice,
@@ -1047,6 +1247,11 @@ async function startServer() {
       updatedAt: Date.now()
     };
     orders.push(order);
+    if (couponGrant) {
+      couponGrant.status = 'USED';
+      couponGrant.usedAt = Date.now();
+      couponGrant.orderId = order.id;
+    }
     persistState();
     res.status(201).json(order);
   });
@@ -1305,11 +1510,22 @@ async function startServer() {
     res.json(companion);
   });
 
-  app.patch('/api/admin/companions/:id/operator', authMiddleware, requireAdmin('COMPANION_REVIEW'), (req, res) => {
+  app.patch('/api/admin/companions/:id/operator', authMiddleware, requireAdmin('COMPANION_REVIEW'), zValidate(AdminOperatorPatchSchema), (req, res) => {
     const companion = companions.find(item => item.id === req.params.id);
     if (!companion) return sendError(res, 404, 'COMPANION_NOT_FOUND', 'Companion not found');
-    const hourlyRate = req.body?.hourlyRate;
-    const services = req.body?.services as Array<{ id: string; name: string; unitPrice: number; unit: string }> | undefined;
+    const body = (req as express.Request & { validatedBody: { hourlyRate?: number; services?: Array<{ id: string; name: string; unitPrice: number; unit: string }> } }).validatedBody;
+    const hourlyRate = body.hourlyRate;
+    const services = body.services;
+    const nextRate = typeof hourlyRate === 'number' && hourlyRate > 0
+      ? hourlyRate
+      : Array.isArray(services) && services.length > 0
+        ? services[0].unitPrice
+        : companion.hourlyRate;
+    const level = levelFromHourlyRate(nextRate);
+    const band = assertRateInLevelBand(level, nextRate);
+    if (!band.ok) {
+      return sendError(res, 422, 'PRICE_OUT_OF_LEVEL_BAND', 'hourlyRate out of level band', { band: band.band, level });
+    }
     if (typeof hourlyRate === 'number' && hourlyRate > 0) {
       companion.hourlyRate = hourlyRate;
     }
@@ -1693,6 +1909,7 @@ async function startServer() {
     const diamondIncome = walletTransactions
       .filter(t => t.timestamp >= start && t.timestamp <= end && t.type === 'INCOME' && typeof t.amount === 'number' && t.amount > 0)
       .reduce((s, t) => s + t.amount, 0);
+    const metrics = aggregateDashboardMetrics(exposureLogs, walletTransactions, users, start, end);
     res.json({
       range: { start, end },
       totalRechargeUsd: rechargesOk.reduce((s, o) => s + o.amount, 0),
@@ -1700,7 +1917,12 @@ async function startServer() {
       orderPlacerCount: orderPlacers.size,
       completedOrderCount: completed.length,
       completedOrderCoins: completed.reduce((s, o) => s + o.totalPrice, 0),
-      giftCoins: 0,
+      giftCoins: metrics.giftCoins,
+      visitors: metrics.visitors,
+      ctr: metrics.ctr,
+      cvr: metrics.cvr,
+      day1Retention: metrics.day1Retention,
+      day7Retention: metrics.day7Retention,
       diamondIncomeApprox: diamondIncome,
       platformCoins,
       platformDiamonds
@@ -1846,7 +2068,7 @@ async function startServer() {
   });
 
   // 3. Verify Payment (Simulated Callback / Webhook)
-  app.post('/api/recharge/verify', authMiddleware, (req, res) => {
+  app.post('/api/recharge/verify', authMiddleware, async (req, res) => {
     const authUserId = (req as any).authUserId as string;
     const { orderId, transactionId, status } = req.body;
     const order = rechargeOrders.find(o => o.id === orderId);
@@ -1860,8 +2082,18 @@ async function startServer() {
     }
 
     order.transactionId = transactionId;
-    
+
     if (status === 'SUCCESS') {
+      const verifier = getPaymentVerifier();
+      const receipt = String(req.body?.receipt || 'sandbox-ok');
+      const verified = await verifyPaymentIdempotent(verifier, {
+        receipt,
+        productId: order.packageId,
+        transactionId: String(transactionId || order.id),
+      });
+      if (!verified.valid) {
+        return sendError(res, 402, 'PAYMENT_NOT_VERIFIED', 'Payment verification failed');
+      }
       // Risk Control: Suspicious behavior (e.g., too many orders in short time)
       const recentOrders = rechargeOrders.filter(o => 
         o.userId === order.userId && 
@@ -1921,8 +2153,12 @@ async function startServer() {
     }
     const bal = diamondWallets[userId]?.balance ?? 0;
     if (bal < diamondAmount) return sendError(res, 400, 'WALLET_INSUFFICIENT_DIAMONDS', 'Insufficient diamonds');
-    const feeUsd = Math.round(diamondAmount * 0.02 * 100) / 100;
-    const payoutUsd = Math.max(0, Math.round((diamondAmount * 0.01 - feeUsd) * 100) / 100);
+    const quote = computeWithdraw(diamondAmount);
+    if (!quote.withinLimits) {
+      return sendError(res, 400, quote.reason || 'WITHDRAW_INVALID', 'Withdraw amount out of limits');
+    }
+    const feeUsd = quote.feeUsd;
+    const payoutUsd = quote.payoutUsd;
     const w: WithdrawalRequest = {
       id: `wd_${Math.random().toString(36).slice(2, 10)}`,
       userId,
@@ -2022,6 +2258,45 @@ async function startServer() {
     res.json({ status: 'REFUNDED', currentBalance: wallet.balance });
   });
 
+  registerOpsRoutes(app, {
+    sendError,
+    authMiddleware,
+    requireAdmin,
+    getUserById,
+    couponTemplates,
+    couponGrants,
+    deviceBans,
+    exposureLogs,
+    tickets,
+    walletTransactions,
+    persistState,
+    appendAuditLog,
+  });
+
+  app.post('/api/uploads/signed', authMiddleware, async (req, res) => {
+    const kind = req.body?.kind === 'video' ? 'video' : 'image';
+    const mime = String(req.body?.mime || (kind === 'video' ? 'video/mp4' : 'image/jpeg'));
+    const check = validateUploadMime(mime, kind);
+    if (!check.ok) return sendError(res, 400, 'UPLOAD_MIME_INVALID', 'MIME not allowed');
+    const key = `uploads/${(req as any).authUserId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const store = resolveObjectStore();
+    const signed = await store.presignPut(key, mime, check.maxBytes);
+    res.json({ ...signed, fields: {}, maxBytes: check.maxBytes });
+  });
+
+  app.post('/api/uploads/commit', authMiddleware, (req, res) => {
+    res.status(201).json({
+      id: `asset_${Math.random().toString(36).slice(2, 9)}`,
+      key: req.body?.key,
+      status: 'PENDING',
+      ownerId: (req as any).authUserId,
+    });
+  });
+
+  startSettlementCron(async weekKey => {
+    logger.info({ weekKey }, 'settlement_cron_tick');
+  });
+
   // --- Vite Integration ---
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -2041,9 +2316,21 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    logger.info({ port: PORT }, 'server_started');
   });
+
+  const gracefulShutdown = (signal: string) => {
+    logger.info({ signal }, 'shutdown_started');
+    shuttingDown = true;
+    server.close(() => {
+      logger.info('shutdown_complete');
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 30_000).unref();
+  };
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 startServer();

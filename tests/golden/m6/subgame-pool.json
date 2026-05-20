@@ -1,0 +1,8 @@
+{
+  "candidates": [
+    { "companionId": "sg1", "level": 5, "impressions24h": 3, "clicks24h": 2, "completedOrders30d": 6, "avgRating": 4.7, "activityScore": 70, "orderRecencyHours": 8, "availability": "ONLINE", "gameId": "lol" },
+    { "companionId": "sg2", "level": 4, "impressions24h": 5, "clicks24h": 1, "completedOrders30d": 3, "avgRating": 4.4, "activityScore": 45, "orderRecencyHours": 40, "availability": "ONLINE", "gameId": "lol" }
+  ],
+  "ctx": { "weights": { "wOrder": 0.4, "wRating": 0.35, "wActive": 0.25, "wBizGlobal": 0.15 }, "nowSeed": 3, "gameId": "lol" },
+  "limit": 2
+}

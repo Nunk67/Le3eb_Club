@@ -1,0 +1,10 @@
+{
+  "candidates": [
+    { "companionId": "feat1", "level": 6, "impressions24h": 2, "clicks24h": 4, "completedOrders30d": 8, "avgRating": 4.9, "activityScore": 90, "orderRecencyHours": 6, "availability": "ONLINE" },
+    { "companionId": "norm1", "level": 3, "impressions24h": 5, "clicks24h": 3, "completedOrders30d": 4, "avgRating": 4.4, "activityScore": 50, "orderRecencyHours": 24, "availability": "ONLINE" },
+    { "companionId": "new1", "level": 1, "impressions24h": 1, "clicks24h": 1, "completedOrders30d": 0, "avgRating": 4, "activityScore": 20, "orderRecencyHours": 999, "availability": "ONLINE" },
+    { "companionId": "new2", "level": 1, "impressions24h": 2, "clicks24h": 2, "completedOrders30d": 1, "avgRating": 4.2, "activityScore": 25, "orderRecencyHours": 72, "availability": "ONLINE" }
+  ],
+  "ctx": { "weights": { "wOrder": 0.4, "wRating": 0.35, "wActive": 0.25, "wBizGlobal": 0.15 }, "nowSeed": 11 },
+  "limit": 4
+}

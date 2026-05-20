@@ -79,11 +79,17 @@ async function request<T>(path: string, method: HttpMethod, body?: unknown, toke
 }
 
 export const businessApi = {
-  register(username: string, email: string, password: string) {
-    return request<unknown>('/api/auth/register', 'POST', { username, email, password });
+  register(username: string, email: string, password: string, deviceId?: string) {
+    return request<unknown>('/api/auth/register', 'POST', { username, email, password, deviceId });
   },
-  login(email: string, password: string) {
-    return request<AuthSession>('/api/auth/login', 'POST', { email, password });
+  login(email: string, password: string, deviceId?: string) {
+    return request<AuthSession>('/api/auth/login', 'POST', { email, password, deviceId });
+  },
+  createTicket(token: string, subject: string, body: string) {
+    return request<{ id: string; status: string }>('/api/tickets', 'POST', { subject, body }, token);
+  },
+  listMyTickets(token: string) {
+    return request<Array<{ id: string; subject: string; status: string; createdAt: number }>>('/api/tickets', 'GET', undefined, token);
   },
   getSession(token: string) {
     return request<AuthSession['user']>('/api/auth/session', 'GET', undefined, token);

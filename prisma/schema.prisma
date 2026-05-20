@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id
+  email        String   @unique
+  username     String
+  passwordHash String
+  role         String
+  deviceId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Wallet {
+  userId    String  @id
+  balance   Decimal @db.Decimal(18, 4)
+  updatedAt DateTime @updatedAt
+}
+
+model Companion {
+  id           String   @id
+  userId       String
+  gameName     String
+  hourlyRate   Decimal  @db.Decimal(18, 4)
+  status       String
+  availability String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Order {
+  id          String   @id
+  userId      String
+  companionId String
+  totalPrice  Decimal  @db.Decimal(18, 4)
+  status      String
+  createdAt   DateTime @default(now())
+}
+
+model PaymentIdempotency {
+  transactionId String   @id
+  userId        String
+  resultJson    String
+  createdAt     DateTime @default(now())
+}
+
+model CompanionExposureLog {
+  id          String   @id @default(cuid())
+  companionId String
+  viewerId    String?
+  eventType   String
+  createdAt   DateTime @default(now())
+}
+
+model SettlementJob {
+  id        String   @id @default(cuid())
+  weekKey   String   @unique
+  status    String
+  createdAt DateTime @default(now())
+}

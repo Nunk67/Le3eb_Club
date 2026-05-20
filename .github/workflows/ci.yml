@@ -14,8 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -27,8 +25,17 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Stage Gate (Full System)
-        run: pnpm run validate:gate -- --profile=full-system
+      - name: Validate policy and algorithms
+        run: pnpm run validate
 
-      - name: Release Integrity
-        run: pnpm run validate:release-integrity
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Unit, regression, golden
+        run: pnpm run test:unit
+
+      - name: Integration
+        run: pnpm run test:integration
+
+      - name: Build
+        run: pnpm run build

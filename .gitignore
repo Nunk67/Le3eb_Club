@@ -1,0 +1,32 @@
+node_modules/
+build/
+dist/
+dist-server/
+coverage/
+.vitest-cache/
+playwright-report/
+test-results/
+
+# Cursor IDE workspace (local only)
+.cursor/
+
+# GitHub metadata (keep workflows tracked for Actions)
+.github/*
+!.github/workflows/
+!.github/workflows/*.yml
+
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Local / scratch (do not publish)
+data/storage.json
+backend/data/storage.json
+backend/data/storage.legacy.json
+keys.txt
+tmp_*.docx
+
+# Prisma local
+prisma/dev.db
+prisma/dev.db-journal
