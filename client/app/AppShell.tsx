@@ -83,6 +83,7 @@ import { formatChatMessageTime } from '../lib/chatTime';
 
 import { useApp } from './AppContext';
 import { ViewRouter } from '../views/ViewRouter';
+import { AuthModal } from '../components/auth/AuthModal';
 
 export function AppShell() {
 const {
@@ -727,74 +728,24 @@ const {
         </AnimatePresence>
 
         <AnimatePresence>
-          {showAuthModal && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowAuthModal(false)}
-                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[900]"
-              />
-              <motion.div
-                initial={{ opacity: 0, y: 20, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 20, scale: 0.96 }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[901]"
-              >
-                <GlassCard className="p-7 space-y-5">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-2xl font-black text-white">{authMode === 'LOGIN' ? t('auth.modalLogin') : t('auth.modalRegister')}</h3>
-                    <button onClick={() => setShowAuthModal(false)} className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-purple-300">{authStatus || t('auth.modalContinueHint')}</p>
-                  <div className="space-y-3">
-                    {authMode === 'REGISTER' && (
-                      <input
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
-                        value={authUsername}
-                        onChange={(e) => setAuthUsername(e.target.value)}
-                        placeholder={t('auth.usernamePlaceholder')}
-                        required
-                      />
-                    )}
-                    <input
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
-                      value={authEmail}
-                      onChange={(e) => setAuthEmail(e.target.value)}
-                      placeholder={t('auth.emailPlaceholder')}
-                      type="email"
-                      required
-                    />
-                    <input
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      placeholder={t('auth.passwordPlaceholder')}
-                      type="password"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAuthSubmit}
-                      className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 font-bold text-white"
-                    >
-                      {authMode === 'LOGIN' ? t('auth.modalLogin') : t('auth.createAccount')}
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')}
-                    className="w-full py-2 text-xs font-bold text-gray-300 hover:text-white"
-                  >
-                    {authMode === 'LOGIN' ? t('auth.noAccountRegister') : t('auth.haveAccountLogin')}
-                  </button>
-                </GlassCard>
-              </motion.div>
-            </>
-          )}
+          <AuthModal
+            show={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            authMode={authMode}
+            setAuthMode={setAuthMode}
+            authEmail={authEmail}
+            setAuthEmail={setAuthEmail}
+            authPassword={authPassword}
+            setAuthPassword={setAuthPassword}
+            authUsername={authUsername}
+            setAuthUsername={setAuthUsername}
+            authStatus={authStatus}
+            onSubmit={handleAuthSubmit}
+            t={t}
+          />
+        </AnimatePresence>
 
+        <AnimatePresence>
           {showRankingModal && (
             <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-sm px-4 py-10" onClick={() => setShowRankingModal(false)}>
               <div className="max-w-md mx-auto bg-[#160b25] border border-white/10 rounded-3xl p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>

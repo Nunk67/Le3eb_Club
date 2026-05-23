@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
   LayoutDashboard,
   Gamepad2,
@@ -23,9 +23,11 @@ import type { MessageKey } from '../client/i18n/messages';
 // M7 scope keeps admin localization as M8 prep only.
 const ADMIN_I18N_PREP_NOTE = 'M8 admin localization prep anchor';
 
-function adminTokenStoreKey() {
-  return 'admin_workbench_token';
-}
+type AdminWorkbenchProps = {
+  token: string;
+  adminEmail: string;
+  onLogout: () => void | Promise<void>;
+};
 
 type SchemaAction = { label: string; action: string };
 type SchemaModule = {
@@ -123,7 +125,7 @@ const NAV_TITLE_KEY: Record<NavId, MessageKey> = {
   audit: 'admin.nav.audit'
 };
 
-const cardClass = 'bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.25)]';
+const cardClass = 'bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-xl';
 const inputClass =
   'bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-500 focus:border-purple-500/50 focus:outline-none transition-all';
 /** 与主按钮、次按钮同高同圆角，工具栏里对齐成一列 */
@@ -273,12 +275,9 @@ function renderRecordTitle(module: SchemaModule, record: any): string {
   return record.id;
 }
 
-export default function AdminWorkbench() {
+export default function AdminWorkbench({ token, adminEmail, onLogout }: AdminWorkbenchProps) {
   void ADMIN_I18N_PREP_NOTE;
   const { t } = useI18n();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [token, setToken] = useState<string | null>(null);
   const [status, setStatus] = useState(t('admin.status.ready'));
   const [dashboard, setDashboard] = useState<any>(null);
   const [companions, setCompanions] = useState<any[]>([]);
@@ -306,7 +305,6 @@ export default function AdminWorkbench() {
     sortBy: 'timestamp',
     sortDir: 'desc' as 'asc' | 'desc'
   });
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState<NavId>('dashboard');
 
   const [opsUsers, setOpsUsers] = useState<any[]>([]);
@@ -358,17 +356,10 @@ export default function AdminWorkbench() {
   }, [userDetail?.user?.id]);
 
   useEffect(() => {
-    const saved = localStorage.getItem(adminTokenStoreKey());
-    if (!saved) return;
-    setToken(saved);
-    setSessionToken(saved);
-    loadAll(saved).catch(() => {
-      localStorage.removeItem(adminTokenStoreKey());
-      setToken(null);
-      setSessionToken(null);
+    loadAll(token).catch(() => {
       setStatus(t('admin.status.sessionExpired'));
     });
-  }, []);
+  }, [token]);
 
   const setModuleFilter = (
     key: string,
@@ -467,25 +458,6 @@ export default function AdminWorkbench() {
     void load();
   }, [token, activeNav, dataTab, dataRange.start, dataRange.end]);
 
-  const onLogin = async (e: FormEvent) => {
-    e.preventDefault();
-    setStatus(t('admin.status.loggingIn'));
-    try {
-      const result = await adminApi.login(email, password);
-      setToken(result.token);
-      setSessionToken(result.token);
-      localStorage.setItem(adminTokenStoreKey(), result.token);
-      try {
-        await loadAll(result.token);
-        setStatus(t('admin.status.readyAfterLogin'));
-      } catch (loadErr) {
-        setStatus(t('admin.status.loginDashboardLoadFailed', { message: (loadErr as Error).message }));
-      }
-    } catch (error) {
-      setStatus((error as Error).message || t('admin.status.operationFailed'));
-    }
-  };
-
   const run = async (label: string, fn: () => Promise<unknown>) => {
     if (!token) return;
     setStatus(label);
@@ -497,17 +469,7 @@ export default function AdminWorkbench() {
       setStatus((error as Error).message || t('admin.status.operationFailed'));
     }
   };
-  const onLogout = async () => {
-    if (sessionToken) {
-      try {
-        await adminApi.logout(sessionToken);
-      } catch {
-        // Ignore logout network errors, clear local state anyway.
-      }
-    }
-    setToken(null);
-    setSessionToken(null);
-    localStorage.removeItem(adminTokenStoreKey());
+  const handleLogout = async () => {
     setDashboard(null);
     setCompanions([]);
     setOrders([]);
@@ -517,6 +479,7 @@ export default function AdminWorkbench() {
     setFinance(null);
     setAuditReport(null);
     setStatus(t('admin.status.loggedOut'));
+    await onLogout();
   };
 
   const recordsMap = useMemo(() => ({ companions, orders, reviews, risks }), [companions, orders, reviews, risks]);
@@ -744,44 +707,11 @@ export default function AdminWorkbench() {
     </section>
   );
 
-  if (!token) {
-    return (
-      <main className="min-h-screen bg-[#0b0715] text-white p-6 flex items-center justify-center">
-        <div className="max-w-xl w-full bg-white/5 border border-white/10 rounded-3xl p-8 space-y-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(168,85,247,0.12)]">
-          <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-[0.35em] text-purple-300/80 font-bold">Le3eb Admin</p>
-            <h1 className="text-3xl font-black tracking-tight">{t('admin.login.title')}</h1>
-            <p className="text-sm text-gray-400">{t('admin.login.subtitle')}</p>
-          </div>
-          <form onSubmit={onLogin} className="grid gap-3">
-            <input
-              className="bg-white/5 border border-white/10 rounded-xl p-3 focus:border-purple-500/50 focus:outline-none transition-all"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder={t('admin.login.emailPlaceholder')}
-            />
-            <input
-              className="bg-white/5 border border-white/10 rounded-xl p-3 focus:border-purple-500/50 focus:outline-none transition-all"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              type="password"
-              placeholder={t('admin.login.passwordPlaceholder')}
-            />
-            <button className="bg-purple-600 hover:bg-purple-500 rounded-xl py-3 font-bold transition-colors" type="submit">
-              {t('admin.login.submit')}
-            </button>
-          </form>
-          <p className="text-xs text-purple-300">{status}</p>
-        </div>
-      </main>
-    );
-  }
-
-  const adminInitial = (dashboard?.me?.email || email || 'A').slice(0, 1).toUpperCase();
+  const adminInitial = (dashboard?.me?.email || adminEmail || 'A').slice(0, 1).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#0b0715] text-white flex">
-      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-white/10 bg-[#0f081c]">
+    <div className="min-h-screen bg-[#0f071a] text-white font-sans selection:bg-purple-500/30 flex">
+      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-white/10 bg-[#1a0b2e]/95 backdrop-blur-md">
         <div className="h-16 flex items-center px-5 border-b border-white/10">
           <div>
             <p className="text-[10px] uppercase tracking-[0.25em] text-purple-300/90 font-bold">Le3eb</p>
@@ -812,7 +742,7 @@ export default function AdminWorkbench() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        <header className="h-14 shrink-0 flex items-center justify-between gap-4 px-4 md:px-6 border-b border-white/10 bg-[#0b0715]/95 backdrop-blur-md">
+        <header className="h-14 shrink-0 flex items-center justify-between gap-4 px-4 md:px-6 border-b border-white/10 bg-[#0f071a]/95 backdrop-blur-md sticky top-0 z-40">
           <div className="flex items-center gap-3 min-w-0">
             <div className="md:hidden">
               <select
@@ -842,7 +772,7 @@ export default function AdminWorkbench() {
             </button>
             <div
               className="w-8 h-8 rounded-full bg-purple-600/40 border border-purple-400/40 flex items-center justify-center text-xs font-bold"
-              title={dashboard?.me?.email || email}
+              title={dashboard?.me?.email || adminEmail}
             >
               {adminInitial}
             </div>
@@ -855,7 +785,7 @@ export default function AdminWorkbench() {
             </a>
             <button
               type="button"
-              onClick={onLogout}
+              onClick={handleLogout}
               className="inline-flex items-center gap-1 px-3 py-2 text-xs rounded-xl bg-red-500/15 border border-red-500/30 text-red-200 hover:bg-red-500/25 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />

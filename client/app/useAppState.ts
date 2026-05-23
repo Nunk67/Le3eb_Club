@@ -4,7 +4,7 @@ import {
   Wallet as WalletType, RechargePackage, WalletTransaction,
 } from '@shared/types';
 import { GAMES, EPALS, POSTS } from '../constants';
-import { businessApi, type CompanionRanking } from '../services/businessApi';
+import { businessApi, type AuthUser, type CompanionRanking } from '../services/businessApi';
 import { useI18n } from '../i18n/I18nProvider';
 import { useDeviceId } from '../hooks/useDeviceId';
 import { type View, BUSINESS_TOKEN_KEY, BUSINESS_UI_AUTH_KEY } from '../router/routes';
@@ -42,6 +42,9 @@ export function useAppState() {
   const [expandedRankingId, setExpandedRankingId] = useState<string | null>(null);
   const pendingNavigationRef = useRef<{ view: View; data?: any } | null>(null);
   const authTokenRef = useRef<string | null>(null);
+  const adminLoginIntentRef = useRef(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authSessionReady, setAuthSessionReady] = useState(false);
 
   const fetchWallet = useCallback(async () => {
     const token = authTokenRef.current;
@@ -98,12 +101,39 @@ export function useAppState() {
   }, [fetchPackages]);
 
   useEffect(() => {
-    const uiAuth = sessionStorage.getItem(BUSINESS_UI_AUTH_KEY) === '1';
-    setIsAuthenticated(uiAuth);
-    isAuthenticatedRef.current = uiAuth;
-    const token = uiAuth ? localStorage.getItem(BUSINESS_TOKEN_KEY) : null;
-    setAuthToken(token);
-    authTokenRef.current = token;
+    let cancelled = false;
+    const restoreSession = async () => {
+      const uiAuth = sessionStorage.getItem(BUSINESS_UI_AUTH_KEY) === '1';
+      const token = uiAuth ? localStorage.getItem(BUSINESS_TOKEN_KEY) : null;
+      if (cancelled) return;
+      setIsAuthenticated(Boolean(uiAuth && token));
+      isAuthenticatedRef.current = Boolean(uiAuth && token);
+      setAuthToken(token);
+      authTokenRef.current = token;
+      if (token) {
+        try {
+          const user = await businessApi.getSession(token);
+          if (cancelled) return;
+          setAuthUser(user);
+        } catch {
+          if (cancelled) return;
+          localStorage.removeItem(BUSINESS_TOKEN_KEY);
+          sessionStorage.removeItem(BUSINESS_UI_AUTH_KEY);
+          setIsAuthenticated(false);
+          isAuthenticatedRef.current = false;
+          setAuthToken(null);
+          authTokenRef.current = null;
+          setAuthUser(null);
+        }
+      } else {
+        setAuthUser(null);
+      }
+      if (!cancelled) setAuthSessionReady(true);
+    };
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -145,6 +175,13 @@ export function useAppState() {
     setShowAuthModal(true);
   };
 
+  const openAdminAuthModal = useCallback(() => {
+    adminLoginIntentRef.current = true;
+    setAuthMode('LOGIN');
+    setAuthStatus(t('admin.login.viaUserAppHint'));
+    setShowAuthModal(true);
+  }, [t]);
+
   const notify = (message: string) => {
     setToastMessage(message);
     useUiStore.getState().setToastMessage(message);
@@ -175,27 +212,49 @@ export function useAppState() {
     isAuthenticatedRef.current = false;
     setAuthToken(null);
     authTokenRef.current = null;
+    setAuthUser(null);
+    adminLoginIntentRef.current = false;
     pendingNavigationRef.current = null;
     setCurrentView('HOME');
     setViewHistory(['HOME']);
     setShowAuthModal(false);
     setAuthStatus(t('auth.loggedOut'));
+    if (window.location.pathname.startsWith('/admin')) {
+      window.location.replace('/');
+    }
   };
 
   const handleAuthSubmit = async () => {
     setAuthStatus(authMode === 'LOGIN' ? t('auth.loggingIn') : t('auth.registering'));
     try {
-      if (authMode === 'REGISTER') {
+      if (authMode === 'REGISTER' && !adminLoginIntentRef.current) {
         await businessApi.register(authUsername, authEmail, authPassword, deviceId || undefined);
       }
       const session = await businessApi.login(authEmail, authPassword, deviceId || undefined);
+      const wantsAdmin =
+        adminLoginIntentRef.current || window.location.pathname.startsWith('/admin');
+
+      if (wantsAdmin && session.user.role !== 'ADMIN') {
+        adminLoginIntentRef.current = false;
+        setAuthStatus(t('admin.login.notAdmin'));
+        return;
+      }
+
       localStorage.setItem(BUSINESS_TOKEN_KEY, session.token);
       sessionStorage.setItem(BUSINESS_UI_AUTH_KEY, '1');
       setIsAuthenticated(true);
       isAuthenticatedRef.current = true;
       setAuthToken(session.token);
       authTokenRef.current = session.token;
+      setAuthUser(session.user);
       setShowAuthModal(false);
+      adminLoginIntentRef.current = false;
+
+      if (wantsAdmin) {
+        setAuthStatus(t('admin.status.readyAfterLogin'));
+        return;
+      }
+
       setAuthStatus(t('auth.loggedIn'));
       const pending = pendingNavigationRef.current;
       pendingNavigationRef.current = null;
@@ -727,6 +786,7 @@ export function useAppState() {
     isRecording, setIsRecording, recordingTime, setRecordingTime,
     pushNotificationsEnabled, setPushNotificationsEnabled, cacheSize, setCacheSize,
     isAuthenticated, setIsAuthenticated, isAuthenticatedRef, authToken, setAuthToken,
+    authUser, setAuthUser, authSessionReady,
     showAuthModal, setShowAuthModal, authMode, setAuthMode, authEmail, setAuthEmail,
     authPassword, setAuthPassword, authUsername, setAuthUsername, authStatus, setAuthStatus,
     toastMessage, setToastMessage, companionRankings, setCompanionRankings,
@@ -734,7 +794,7 @@ export function useAppState() {
     rankingSortBy, setRankingSortBy, showRankingModal, setShowRankingModal,
     expandedRankingId, setExpandedRankingId, pendingNavigationRef, authTokenRef,
     fetchWallet, fetchTransactions, fetchPackages, fetchCompanionRankings, sortedRankings,
-    openAuthModal, notify, requireAuthAction, handleLogout, handleAuthSubmit, handleRecharge,
+    openAuthModal, openAdminAuthModal, notify, requireAuthAction, handleLogout, handleAuthSubmit, handleRecharge,
     selectedCategory, setSelectedCategory, searchQuery, setSearchQuery, selectedGame, setSelectedGame,
     selectedServiceCategory, setSelectedServiceCategory, applicationDetails, setApplicationDetails,
     selectedEPal, setSelectedEPal, selectedPost, setSelectedPost, showGiftPanel, setShowGiftPanel,

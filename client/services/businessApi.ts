@@ -1,13 +1,17 @@
 import type { RechargeOrder, RechargePackage, Wallet as WalletType, WalletTransaction } from '@shared/types';
 
+export interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  role: 'USER' | 'PLAYER' | 'ADMIN';
+  adminRoleTemplate?: string;
+  permissions?: string[];
+}
+
 export interface AuthSession {
   token: string;
-  user: {
-    id: string;
-    username: string;
-    email: string;
-    role: 'USER' | 'PLAYER';
-  };
+  user: AuthUser;
 }
 
 export interface CompanionProfile {

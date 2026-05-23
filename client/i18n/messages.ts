@@ -62,6 +62,8 @@ export type MessageKey =
   | 'admin.login.emailPlaceholder'
   | 'admin.login.passwordPlaceholder'
   | 'admin.login.submit'
+  | 'admin.login.viaUserAppHint'
+  | 'admin.login.notAdmin'
   | 'admin.shell.title'
   | 'admin.shell.localWorkbench'
   | 'admin.shell.console'
@@ -340,6 +342,8 @@ const en: MessageDict = {
   'admin.login.emailPlaceholder': 'Admin email',
   'admin.login.passwordPlaceholder': 'Password',
   'admin.login.submit': 'Sign In',
+  'admin.login.viaUserAppHint': 'Sign in with your admin account using the same login as the user app.',
+  'admin.login.notAdmin': 'This account does not have admin access.',
   'admin.shell.title': 'Admin Workspace',
   'admin.shell.localWorkbench': 'Local workbench - operations debug only',
   'admin.shell.console': 'Le3eb Console',
@@ -618,6 +622,8 @@ const zhCN: MessageDict = {
   'admin.login.emailPlaceholder': '管理员邮箱',
   'admin.login.passwordPlaceholder': '密码',
   'admin.login.submit': '登录',
+  'admin.login.viaUserAppHint': '请使用与用户端相同的登录界面，输入管理员账号密码进入运营后台。',
+  'admin.login.notAdmin': '该账号没有运营后台权限。',
   'admin.shell.title': '管理后台',
   'admin.shell.localWorkbench': '本地工作台 · 仅供运营调试',
   'admin.shell.console': 'Le3eb 控制台',
@@ -896,6 +902,8 @@ const ar: MessageDict = {
   'admin.login.emailPlaceholder': 'بريد المدير',
   'admin.login.passwordPlaceholder': 'كلمة المرور',
   'admin.login.submit': 'تسجيل الدخول',
+  'admin.login.viaUserAppHint': 'سجّل الدخول بحساب المدير عبر نفس واجهة تسجيل الدخول في تطبيق المستخدم.',
+  'admin.login.notAdmin': 'هذا الحساب لا يملك صلاحية الوصول إلى لوحة الإدارة.',
   'admin.shell.title': 'لوحة الإدارة',
   'admin.shell.localWorkbench': 'منصة محلية - للاختبار التشغيلي فقط',
   'admin.shell.console': 'وحدة تحكم Le3eb',
