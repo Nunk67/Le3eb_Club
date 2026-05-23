@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import { loadEnv } from '../config/env.js';
 import { logger } from '../logging/logger.js';
 

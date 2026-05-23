@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "noEmit": false,
+    "outDir": "dist-server",
+    "rootDir": ".",
+    "allowImportingTsExtensions": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "jsx": "preserve",
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["backend/**/*.ts", "shared/**/*.ts"],
+  "exclude": ["node_modules", "dist", "dist-server", "client", "admin", "tests", "scripts"]
+}

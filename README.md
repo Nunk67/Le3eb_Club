@@ -319,7 +319,7 @@ docker compose -f docker-compose.dev.yml up -d
 
 ## 生产准备说明
 
-- 生产启动前执行 `pnpm run build`，再以 `NODE_ENV=production` 运行 `pnpm start`（或 `node dist-server/server.js`）。
+- 生产启动前执行 `pnpm run build`，再以 `NODE_ENV=production` 运行 `pnpm start`（或 `node dist-server/backend/server.js`）。
 - 服务端读取 `PORT` 环境变量；未设置时默认 `3000`。
 - 首次生产启动若无管理员，需设置 `ADMIN_EMAIL` 与 `ADMIN_PASSWORD` 进行一次性引导。
 - 生产环境不要启用 `ALLOW_DEMO_SEED`。

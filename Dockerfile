@@ -20,4 +20,4 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
 EXPOSE 3000
 HEALTHCHECK CMD wget -qO- http://127.0.0.1:3000/healthz || exit 1
-CMD ["node", "dist-server/server.js"]
+CMD ["node", "dist-server/backend/server.js"]
