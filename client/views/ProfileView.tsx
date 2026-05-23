@@ -609,14 +609,7 @@ const {
                     <MessageSquare className="w-5 h-5 text-purple-400" /> Chat
                   </button>
                   <button 
-                    onClick={() => {
-                      if (selectedEPal && activeServiceId) {
-                        const service = selectedEPal.services?.find(s => s.id === activeServiceId);
-                        if (service) {
-                          navigateTo('ORDER_CONFIRM', { epal: selectedEPal, variant: service.variants[0] });
-                        }
-                      }
-                    }}
+                    onClick={() => selectedEPal && navigateTo('ORDER_CONFIRM', { epal: selectedEPal })}
                     className="flex-1 py-4 rounded-2xl bg-purple-600 font-bold shadow-[0_0_30px_rgba(168,85,247,0.4)] active:scale-95 transition-all flex items-center justify-center gap-3 text-white"
                   >
                     <Play className="w-5 h-5 fill-current" /> Play

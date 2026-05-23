@@ -10,6 +10,7 @@ import { useDeviceId } from '../hooks/useDeviceId';
 import { type View, BUSINESS_TOKEN_KEY, BUSINESS_UI_AUTH_KEY } from '../router/routes';
 import { viewRequiresAuth } from '../router/guards';
 import { useUiStore } from '../stores/uiStore';
+import { resolveOrderContext } from '../lib/resolveOrderContext';
 
 export function useAppState() {
   const deviceId = useDeviceId();
@@ -393,7 +394,7 @@ export function useAppState() {
     { id: '3', participantId: '3', lastMessage: 'Looking for a duo?', lastTimestamp: Date.now() - 7200000, unreadCount: 1 },
   ]);
   const [imOrders, setImOrders] = useState<IMOrder[]>([
-    { id: 'o1', epalId: '1', serviceName: 'League of Legends', status: 'PENDING', price: 15, timestamp: Date.now() - 86400000, unit: 'Game', unitPrice: 15, quantity: 1 },
+    { id: 'o1', epalId: '1', serviceName: 'League of Legends', status: 'COMPLETED', price: 15, timestamp: Date.now() - 86400000, endTime: Date.now() - 86400000 + 3600000, unit: 'Game', unitPrice: 15, quantity: 1 },
     { id: 'o2', epalId: '3', serviceName: 'Valorant', status: 'COMPLETED', price: 24, timestamp: Date.now() - 172800000, endTime: Date.now() - 172800000 + 3600000, unit: 'Game', unitPrice: 12, quantity: 2 },
   ]);
   const [showOngoingOrderWarning, setShowOngoingOrderWarning] = useState(false);
@@ -568,19 +569,31 @@ export function useAppState() {
     }
     if (view === 'ORDER_CONFIRM') {
       const epal = data?.epal || selectedEPal;
-      if (epal) {
-        const hasOngoingOrder = imOrders.some(order => 
-          order.epalId === epal.id && 
-          order.status !== 'COMPLETED' && 
-          order.status !== 'CANCELLED'
-        );
-        if (hasOngoingOrder) {
-          setShowOngoingOrderWarning(true);
-          return;
-        }
+      if (!epal) return;
+
+      const hasOngoingOrder = imOrders.some(order =>
+        order.epalId === epal.id &&
+        order.status !== 'COMPLETED' &&
+        order.status !== 'CANCELLED',
+      );
+      if (hasOngoingOrder) {
+        setShowOngoingOrderWarning(true);
+        return;
       }
+
+      const orderContext = resolveOrderContext(epal, {
+        variant: data?.variant,
+        serviceId: data?.serviceId,
+        activeServiceId,
+      });
+      if (!orderContext) {
+        notify('This companion has no bookable services yet.');
+        return;
+      }
+
       if (data?.epal) setSelectedEPal(data.epal);
-      if (data?.variant) setSelectedVariant(data.variant);
+      setActiveServiceId(orderContext.serviceId);
+      setSelectedVariant(orderContext.variant);
       setOrderQuantity(1);
       setSelectedCoupon(null);
     }
