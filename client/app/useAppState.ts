@@ -29,8 +29,12 @@ export function useAppState() {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [authLoginMethod, setAuthLoginMethod] = useState<'PASSWORD' | 'EMAIL_CODE'>('PASSWORD');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authEmailCode, setAuthEmailCode] = useState('');
+  const [authCodeCooldown, setAuthCodeCooldown] = useState(0);
+  const [authCodeSending, setAuthCodeSending] = useState(false);
   const [authUsername, setAuthUsername] = useState('');
   const [authStatus, setAuthStatus] = useState('');
   const [toastMessage, setToastMessage] = useState('');
@@ -145,6 +149,14 @@ export function useAppState() {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    if (authCodeCooldown <= 0) return undefined;
+    const timer = window.setInterval(() => {
+      setAuthCodeCooldown(value => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [authCodeCooldown]);
+
+  useEffect(() => {
     if (!isAuthenticated || !authToken) {
       setCompanionRankings([]);
       setRankingsLoading(false);
@@ -172,12 +184,14 @@ export function useAppState() {
   const openAuthModal = (statusText = t('auth.loginRequired')) => {
     setAuthStatus(statusText);
     setAuthMode('LOGIN');
+    setAuthLoginMethod('PASSWORD');
     setShowAuthModal(true);
   };
 
   const openAdminAuthModal = useCallback(() => {
     adminLoginIntentRef.current = true;
     setAuthMode('LOGIN');
+    setAuthLoginMethod('PASSWORD');
     setAuthStatus(t('admin.login.viaUserAppHint'));
     setShowAuthModal(true);
   }, [t]);
@@ -224,46 +238,87 @@ export function useAppState() {
     }
   };
 
+  const finishAuthSession = (
+    session: Awaited<ReturnType<typeof businessApi.login>>,
+    wantsAdmin: boolean,
+  ) => {
+    if (wantsAdmin && session.user.role !== 'ADMIN') {
+      adminLoginIntentRef.current = false;
+      setAuthStatus(t('admin.login.notAdmin'));
+      return;
+    }
+
+    localStorage.setItem(BUSINESS_TOKEN_KEY, session.token);
+    sessionStorage.setItem(BUSINESS_UI_AUTH_KEY, '1');
+    setIsAuthenticated(true);
+    isAuthenticatedRef.current = true;
+    setAuthToken(session.token);
+    authTokenRef.current = session.token;
+    setAuthUser(session.user);
+    setShowAuthModal(false);
+    setAuthEmailCode('');
+    adminLoginIntentRef.current = false;
+
+    if (wantsAdmin) {
+      setAuthStatus(t('admin.status.readyAfterLogin'));
+      return;
+    }
+
+    setAuthStatus(t('auth.loggedIn'));
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    if (pending) {
+      navigateTo(pending.view, pending.data);
+    } else {
+      setCurrentView('ME');
+      setViewHistory(['ME']);
+    }
+  };
+
+  const handleSendAuthEmailCode = async () => {
+    if (!authEmail.trim()) {
+      setAuthStatus(t('auth.emailRequired'));
+      return;
+    }
+    if (authCodeCooldown > 0 || authCodeSending) return;
+
+    setAuthCodeSending(true);
+    setAuthStatus(t('auth.sendingCode'));
+    try {
+      const result = await businessApi.sendEmailCode(authEmail, 'login', deviceId || undefined);
+      setAuthCodeCooldown(result.cooldownSec);
+      setAuthStatus(t('auth.codeSent'));
+    } catch (error) {
+      setAuthStatus((error as Error).message);
+    } finally {
+      setAuthCodeSending(false);
+    }
+  };
+
   const handleAuthSubmit = async () => {
     setAuthStatus(authMode === 'LOGIN' ? t('auth.loggingIn') : t('auth.registering'));
     try {
-      if (authMode === 'REGISTER' && !adminLoginIntentRef.current) {
+      const wantsAdmin =
+        adminLoginIntentRef.current || window.location.pathname.startsWith('/admin');
+      const shouldUseEmailCode =
+        authMode === 'LOGIN' && authLoginMethod === 'EMAIL_CODE' && !wantsAdmin;
+
+      if (shouldUseEmailCode) {
+        const session = await businessApi.loginWithEmailCode(
+          authEmail,
+          authEmailCode,
+          authUsername || undefined,
+          deviceId || undefined,
+        );
+        finishAuthSession(session, wantsAdmin);
+        return;
+      }
+
+      if (authMode === 'REGISTER' && !wantsAdmin) {
         await businessApi.register(authUsername, authEmail, authPassword, deviceId || undefined);
       }
       const session = await businessApi.login(authEmail, authPassword, deviceId || undefined);
-      const wantsAdmin =
-        adminLoginIntentRef.current || window.location.pathname.startsWith('/admin');
-
-      if (wantsAdmin && session.user.role !== 'ADMIN') {
-        adminLoginIntentRef.current = false;
-        setAuthStatus(t('admin.login.notAdmin'));
-        return;
-      }
-
-      localStorage.setItem(BUSINESS_TOKEN_KEY, session.token);
-      sessionStorage.setItem(BUSINESS_UI_AUTH_KEY, '1');
-      setIsAuthenticated(true);
-      isAuthenticatedRef.current = true;
-      setAuthToken(session.token);
-      authTokenRef.current = session.token;
-      setAuthUser(session.user);
-      setShowAuthModal(false);
-      adminLoginIntentRef.current = false;
-
-      if (wantsAdmin) {
-        setAuthStatus(t('admin.status.readyAfterLogin'));
-        return;
-      }
-
-      setAuthStatus(t('auth.loggedIn'));
-      const pending = pendingNavigationRef.current;
-      pendingNavigationRef.current = null;
-      if (pending) {
-        navigateTo(pending.view, pending.data);
-      } else {
-        setCurrentView('ME');
-        setViewHistory(['ME']);
-      }
+      finishAuthSession(session, wantsAdmin);
     } catch (error) {
       setAuthStatus((error as Error).message);
     }
@@ -788,13 +843,16 @@ export function useAppState() {
     isAuthenticated, setIsAuthenticated, isAuthenticatedRef, authToken, setAuthToken,
     authUser, setAuthUser, authSessionReady,
     showAuthModal, setShowAuthModal, authMode, setAuthMode, authEmail, setAuthEmail,
-    authPassword, setAuthPassword, authUsername, setAuthUsername, authStatus, setAuthStatus,
+    authLoginMethod, setAuthLoginMethod, authPassword, setAuthPassword,
+    authEmailCode, setAuthEmailCode, authCodeCooldown, authCodeSending,
+    authUsername, setAuthUsername, authStatus, setAuthStatus,
     toastMessage, setToastMessage, companionRankings, setCompanionRankings,
     rankingsLoading, setRankingsLoading, rankingsError, setRankingsError,
     rankingSortBy, setRankingSortBy, showRankingModal, setShowRankingModal,
     expandedRankingId, setExpandedRankingId, pendingNavigationRef, authTokenRef,
     fetchWallet, fetchTransactions, fetchPackages, fetchCompanionRankings, sortedRankings,
-    openAuthModal, openAdminAuthModal, notify, requireAuthAction, handleLogout, handleAuthSubmit, handleRecharge,
+    openAuthModal, openAdminAuthModal, notify, requireAuthAction, handleLogout,
+    handleSendAuthEmailCode, handleAuthSubmit, handleRecharge,
     selectedCategory, setSelectedCategory, searchQuery, setSearchQuery, selectedGame, setSelectedGame,
     selectedServiceCategory, setSelectedServiceCategory, applicationDetails, setApplicationDetails,
     selectedEPal, setSelectedEPal, selectedPost, setSelectedPost, showGiftPanel, setShowGiftPanel,

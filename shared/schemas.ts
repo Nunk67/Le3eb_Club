@@ -13,6 +13,21 @@ export const LoginBodySchema = z.object({
   deviceId: z.string().max(128).optional(),
 });
 
+export const EmailCodePurposeSchema = z.enum(['login', 'register']);
+
+export const EmailCodeSendBodySchema = z.object({
+  email: z.string().trim().email(),
+  purpose: EmailCodePurposeSchema.default('login'),
+  deviceId: z.string().max(128).optional(),
+});
+
+export const EmailCodeLoginBodySchema = z.object({
+  email: z.string().trim().email(),
+  code: z.string().regex(/^\d{6}$/),
+  username: z.string().min(2).max(32).optional(),
+  deviceId: z.string().max(128).optional(),
+});
+
 export const CompanionApplySchema = z.object({
   gameName: z.string().min(1).max(80),
   intro: z.string().min(1).max(2000),

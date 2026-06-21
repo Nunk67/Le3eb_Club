@@ -24,6 +24,14 @@ export type MessageKey =
   | 'auth.usernamePlaceholder'
   | 'auth.emailPlaceholder'
   | 'auth.passwordPlaceholder'
+  | 'auth.passwordLogin'
+  | 'auth.emailCodeLogin'
+  | 'auth.emailCodePlaceholder'
+  | 'auth.sendCode'
+  | 'auth.resendCodeIn'
+  | 'auth.sendingCode'
+  | 'auth.codeSent'
+  | 'auth.emailRequired'
   | 'auth.createAccount'
   | 'auth.noAccountRegister'
   | 'auth.haveAccountLogin'
@@ -304,6 +312,14 @@ const en: MessageDict = {
   'auth.usernamePlaceholder': 'username',
   'auth.emailPlaceholder': 'email',
   'auth.passwordPlaceholder': 'password',
+  'auth.passwordLogin': 'Password',
+  'auth.emailCodeLogin': 'Email code',
+  'auth.emailCodePlaceholder': 'verification code',
+  'auth.sendCode': 'Send code',
+  'auth.resendCodeIn': 'Resend in {seconds}s',
+  'auth.sendingCode': 'Sending code...',
+  'auth.codeSent': 'Code sent',
+  'auth.emailRequired': 'Please enter your email first',
   'auth.createAccount': 'Create account',
   'auth.noAccountRegister': 'No account? Register now',
   'auth.haveAccountLogin': 'Already have an account? Log in',
@@ -584,6 +600,14 @@ const zhCN: MessageDict = {
   'auth.usernamePlaceholder': '用户名',
   'auth.emailPlaceholder': '邮箱',
   'auth.passwordPlaceholder': '密码',
+  'auth.passwordLogin': '密码登录',
+  'auth.emailCodeLogin': '验证码登录',
+  'auth.emailCodePlaceholder': '验证码',
+  'auth.sendCode': '发送验证码',
+  'auth.resendCodeIn': '{seconds}s 后重发',
+  'auth.sendingCode': '验证码发送中...',
+  'auth.codeSent': '验证码已发送',
+  'auth.emailRequired': '请先输入邮箱',
   'auth.createAccount': '创建账号',
   'auth.noAccountRegister': '没有账号？立即注册',
   'auth.haveAccountLogin': '已有账号？去登录',
@@ -864,6 +888,14 @@ const ar: MessageDict = {
   'auth.usernamePlaceholder': 'اسم المستخدم',
   'auth.emailPlaceholder': 'البريد الإلكتروني',
   'auth.passwordPlaceholder': 'كلمة المرور',
+  'auth.passwordLogin': 'كلمة المرور',
+  'auth.emailCodeLogin': 'رمز البريد',
+  'auth.emailCodePlaceholder': 'رمز التحقق',
+  'auth.sendCode': 'إرسال الرمز',
+  'auth.resendCodeIn': 'إعادة خلال {seconds}s',
+  'auth.sendingCode': 'جارٍ إرسال الرمز...',
+  'auth.codeSent': 'تم إرسال الرمز',
+  'auth.emailRequired': 'يرجى إدخال البريد الإلكتروني أولاً',
   'auth.createAccount': 'إنشاء حساب',
   'auth.noAccountRegister': 'ليس لديك حساب؟ سجّل الآن',
   'auth.haveAccountLogin': 'لديك حساب؟ سجّل الدخول',
@@ -1029,6 +1061,14 @@ const fr: MessageDict = {
   'auth.usernamePlaceholder': 'username',
   'auth.emailPlaceholder': 'email',
   'auth.passwordPlaceholder': 'password',
+  'auth.passwordLogin': 'Password',
+  'auth.emailCodeLogin': 'Email code',
+  'auth.emailCodePlaceholder': 'verification code',
+  'auth.sendCode': 'Send code',
+  'auth.resendCodeIn': 'Resend in {seconds}s',
+  'auth.sendingCode': 'Sending code...',
+  'auth.codeSent': 'Code sent',
+  'auth.emailRequired': 'Please enter your email first',
   'auth.createAccount': 'Create account',
   'auth.noAccountRegister': 'No account? Register now',
   'auth.haveAccountLogin': 'Already have an account? Log in',
@@ -1093,6 +1133,14 @@ const ru: MessageDict = {
   'auth.usernamePlaceholder': 'username',
   'auth.emailPlaceholder': 'email',
   'auth.passwordPlaceholder': 'password',
+  'auth.passwordLogin': 'Password',
+  'auth.emailCodeLogin': 'Email code',
+  'auth.emailCodePlaceholder': 'verification code',
+  'auth.sendCode': 'Send code',
+  'auth.resendCodeIn': 'Resend in {seconds}s',
+  'auth.sendingCode': 'Sending code...',
+  'auth.codeSent': 'Code sent',
+  'auth.emailRequired': 'Please enter your email first',
   'auth.createAccount': 'Create account',
   'auth.noAccountRegister': 'No account? Register now',
   'auth.haveAccountLogin': 'Already have an account? Log in',
@@ -1157,6 +1205,14 @@ const tr: MessageDict = {
   'auth.usernamePlaceholder': 'username',
   'auth.emailPlaceholder': 'email',
   'auth.passwordPlaceholder': 'password',
+  'auth.passwordLogin': 'Password',
+  'auth.emailCodeLogin': 'Email code',
+  'auth.emailCodePlaceholder': 'verification code',
+  'auth.sendCode': 'Send code',
+  'auth.resendCodeIn': 'Resend in {seconds}s',
+  'auth.sendingCode': 'Sending code...',
+  'auth.codeSent': 'Code sent',
+  'auth.emailRequired': 'Please enter your email first',
   'auth.createAccount': 'Create account',
   'auth.noAccountRegister': 'No account? Register now',
   'auth.haveAccountLogin': 'Already have an account? Log in',

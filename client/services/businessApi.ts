@@ -11,6 +11,8 @@ export interface AuthUser {
 
 export interface AuthSession {
   token: string;
+  refreshToken?: string;
+  legacyToken?: string;
   user: AuthUser;
 }
 
@@ -88,6 +90,16 @@ export const businessApi = {
   },
   login(email: string, password: string, deviceId?: string) {
     return request<AuthSession>('/api/auth/login', 'POST', { email, password, deviceId });
+  },
+  sendEmailCode(email: string, purpose: 'login' | 'register' = 'login', deviceId?: string) {
+    return request<{ ok: boolean; purpose: 'login' | 'register'; expiresInSec: number; cooldownSec: number }>(
+      '/api/auth/email-code/send',
+      'POST',
+      { email, purpose, deviceId }
+    );
+  },
+  loginWithEmailCode(email: string, code: string, username?: string, deviceId?: string) {
+    return request<AuthSession>('/api/auth/email-code/login', 'POST', { email, code, username, deviceId });
   },
   createTicket(token: string, subject: string, body: string) {
     return request<{ id: string; status: string }>('/api/tickets', 'POST', { subject, body }, token);

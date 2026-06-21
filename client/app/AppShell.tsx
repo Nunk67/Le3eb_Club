@@ -94,13 +94,15 @@ const {
     pushNotificationsEnabled, setPushNotificationsEnabled, cacheSize, setCacheSize,
     isAuthenticated, setIsAuthenticated, isAuthenticatedRef, authToken, setAuthToken,
     showAuthModal, setShowAuthModal, authMode, setAuthMode, authEmail, setAuthEmail,
-    authPassword, setAuthPassword, authUsername, setAuthUsername, authStatus, setAuthStatus,
+    authLoginMethod, setAuthLoginMethod, authPassword, setAuthPassword,
+    authEmailCode, setAuthEmailCode, authCodeCooldown, authCodeSending,
+    authUsername, setAuthUsername, authStatus, setAuthStatus,
     toastMessage, setToastMessage, companionRankings, setCompanionRankings,
     rankingsLoading, setRankingsLoading, rankingsError, setRankingsError,
     rankingSortBy, setRankingSortBy, showRankingModal, setShowRankingModal,
     expandedRankingId, setExpandedRankingId, pendingNavigationRef, authTokenRef,
     fetchWallet, fetchTransactions, fetchPackages, fetchCompanionRankings, sortedRankings,
-    openAuthModal, notify, requireAuthAction, handleLogout, handleAuthSubmit, handleRecharge,
+    openAuthModal, notify, requireAuthAction, handleLogout, handleSendAuthEmailCode, handleAuthSubmit, handleRecharge,
     selectedCategory, setSelectedCategory, searchQuery, setSearchQuery, selectedGame, setSelectedGame,
     selectedServiceCategory, setSelectedServiceCategory, applicationDetails, setApplicationDetails,
     selectedEPal, setSelectedEPal, selectedPost, setSelectedPost, showGiftPanel, setShowGiftPanel,
@@ -733,13 +735,20 @@ const {
             onClose={() => setShowAuthModal(false)}
             authMode={authMode}
             setAuthMode={setAuthMode}
+            authLoginMethod={authLoginMethod}
+            setAuthLoginMethod={setAuthLoginMethod}
             authEmail={authEmail}
             setAuthEmail={setAuthEmail}
             authPassword={authPassword}
             setAuthPassword={setAuthPassword}
+            authEmailCode={authEmailCode}
+            setAuthEmailCode={setAuthEmailCode}
+            authCodeCooldown={authCodeCooldown}
+            authCodeSending={authCodeSending}
             authUsername={authUsername}
             setAuthUsername={setAuthUsername}
             authStatus={authStatus}
+            onSendEmailCode={handleSendAuthEmailCode}
             onSubmit={handleAuthSubmit}
             t={t}
           />
@@ -874,4 +883,3 @@ const NavButton = ({
     <span className="text-[9px] font-bold leading-tight text-center max-w-[64px] truncate">{label}</span>
   </button>
 );
-

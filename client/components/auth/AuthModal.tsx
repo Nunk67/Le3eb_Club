@@ -1,20 +1,29 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { X } from 'lucide-react';
+import { KeyRound, Mail, X } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import type { MessageKey } from '../../i18n/messages';
+
+type AuthLoginMethod = 'PASSWORD' | 'EMAIL_CODE';
 
 type AuthModalProps = {
   show: boolean;
   onClose: () => void;
   authMode: 'LOGIN' | 'REGISTER';
   setAuthMode: (mode: 'LOGIN' | 'REGISTER') => void;
+  authLoginMethod: AuthLoginMethod;
+  setAuthLoginMethod: (method: AuthLoginMethod) => void;
   authEmail: string;
   setAuthEmail: (value: string) => void;
   authPassword: string;
   setAuthPassword: (value: string) => void;
+  authEmailCode: string;
+  setAuthEmailCode: (value: string) => void;
+  authCodeCooldown: number;
+  authCodeSending: boolean;
   authUsername: string;
   setAuthUsername: (value: string) => void;
   authStatus: string;
+  onSendEmailCode: () => void;
   onSubmit: () => void;
   t: (key: MessageKey, params?: Record<string, string | number>) => string;
   adminOnly?: boolean;
@@ -28,13 +37,20 @@ export function AuthModal({
   onClose,
   authMode,
   setAuthMode,
+  authLoginMethod,
+  setAuthLoginMethod,
   authEmail,
   setAuthEmail,
   authPassword,
   setAuthPassword,
+  authEmailCode,
+  setAuthEmailCode,
+  authCodeCooldown,
+  authCodeSending,
   authUsername,
   setAuthUsername,
   authStatus,
+  onSendEmailCode,
   onSubmit,
   t,
   adminOnly = false,
@@ -48,6 +64,17 @@ export function AuthModal({
       ? t('auth.modalLogin')
       : t('auth.modalRegister');
   const hint = authStatus || (hintKey ? t(hintKey) : t('auth.modalContinueHint'));
+  const showEmailCodeLogin = authMode === 'LOGIN' && authLoginMethod === 'EMAIL_CODE' && !adminOnly;
+  const sendCodeLabel = authCodeCooldown > 0
+    ? t('auth.resendCodeIn', { seconds: authCodeCooldown })
+    : t('auth.sendCode');
+
+  const switchAuthMode = () => {
+    const nextMode = authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN';
+    setAuthMode(nextMode);
+    setAuthLoginMethod('PASSWORD');
+    setAuthEmailCode('');
+  };
 
   return (
     <AnimatePresence>
@@ -79,6 +106,34 @@ export function AuthModal({
                 )}
               </div>
               <p className="text-xs text-purple-300">{hint}</p>
+              {authMode === 'LOGIN' && !adminOnly && (
+                <div className="grid grid-cols-2 rounded-xl border border-white/10 bg-white/5 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setAuthLoginMethod('PASSWORD')}
+                    className={`flex min-h-10 items-center justify-center gap-2 rounded-lg px-2 text-xs font-bold transition-colors ${
+                      authLoginMethod === 'PASSWORD'
+                        ? 'bg-purple-600 text-white'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    <KeyRound className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{t('auth.passwordLogin')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthLoginMethod('EMAIL_CODE')}
+                    className={`flex min-h-10 items-center justify-center gap-2 rounded-lg px-2 text-xs font-bold transition-colors ${
+                      authLoginMethod === 'EMAIL_CODE'
+                        ? 'bg-purple-600 text-white'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    <Mail className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{t('auth.emailCodeLogin')}</span>
+                  </button>
+                </div>
+              )}
               <div className="space-y-3">
                 {authMode === 'REGISTER' && !adminOnly && (
                   <input
@@ -97,14 +152,37 @@ export function AuthModal({
                   type="email"
                   required
                 />
-                <input
-                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
-                  value={authPassword}
-                  onChange={e => setAuthPassword(e.target.value)}
-                  placeholder={t('auth.passwordPlaceholder')}
-                  type="password"
-                  required
-                />
+                {showEmailCodeLogin ? (
+                  <div className="flex gap-2">
+                    <input
+                      className="min-w-0 flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
+                      value={authEmailCode}
+                      onChange={e => setAuthEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder={t('auth.emailCodePlaceholder')}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={onSendEmailCode}
+                      disabled={authCodeCooldown > 0 || authCodeSending}
+                      className="flex min-h-11 min-w-[7.5rem] items-center justify-center gap-2 rounded-xl border border-purple-400/30 bg-purple-500/15 px-3 text-xs font-bold text-purple-100 transition-colors hover:bg-purple-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Mail className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{sendCodeLabel}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm"
+                    value={authPassword}
+                    onChange={e => setAuthPassword(e.target.value)}
+                    placeholder={t('auth.passwordPlaceholder')}
+                    type="password"
+                    required
+                  />
+                )}
                 <button
                   type="button"
                   onClick={onSubmit}
@@ -115,7 +193,7 @@ export function AuthModal({
               </div>
               {!adminOnly && (
                 <button
-                  onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')}
+                  onClick={switchAuthMode}
                   className="w-full py-2 text-xs font-bold text-gray-300 hover:text-white"
                 >
                   {authMode === 'LOGIN' ? t('auth.noAccountRegister') : t('auth.haveAccountLogin')}
