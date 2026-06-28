@@ -15,14 +15,21 @@ export function AdminRoute() {
     setShowAuthModal,
     authMode,
     setAuthMode,
+    authLoginMethod,
+    setAuthLoginMethod,
     authEmail,
     setAuthEmail,
     authPassword,
     setAuthPassword,
+    authEmailCode,
+    setAuthEmailCode,
+    authCodeCooldown,
+    authCodeSending,
     authUsername,
     setAuthUsername,
     authStatus,
     openAdminAuthModal,
+    handleSendAuthEmailCode,
     handleAuthSubmit,
     handleLogout,
     notify,
@@ -67,13 +74,20 @@ export function AdminRoute() {
           onClose={() => setShowAuthModal(false)}
           authMode={authMode}
           setAuthMode={setAuthMode}
+          authLoginMethod={authLoginMethod}
+          setAuthLoginMethod={setAuthLoginMethod}
           authEmail={authEmail}
           setAuthEmail={setAuthEmail}
           authPassword={authPassword}
           setAuthPassword={setAuthPassword}
+          authEmailCode={authEmailCode}
+          setAuthEmailCode={setAuthEmailCode}
+          authCodeCooldown={authCodeCooldown}
+          authCodeSending={authCodeSending}
           authUsername={authUsername}
           setAuthUsername={setAuthUsername}
           authStatus={authStatus}
+          onSendEmailCode={handleSendAuthEmailCode}
           onSubmit={handleAuthSubmit}
           t={t}
           adminOnly

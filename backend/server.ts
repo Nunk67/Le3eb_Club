@@ -2,7 +2,6 @@ import express from 'express';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -15,23 +14,15 @@ import {
 } from '../shared/types.js';
 import { loadEnv } from './config/env.js';
 import { logger } from './logging/logger.js';
-import { computeWithdraw, MONEY_POLICY, assertRateInLevelBand, validateLevelingConfig } from './policy/index.js';
+import { assertRateInLevelBand, validateLevelingConfig } from './policy/index.js';
 import { levelFromHourlyRate } from './policy/leveling.js';
-import { rankCompanions } from './algo/m6Exposure.js';
-import { hashPassword as hashPasswordArgon, verifyPassword as verifyPasswordArgon } from './auth/password.js';
-import { signAccessToken, verifyAccessToken, issueRefreshToken, rotateRefreshToken, revokeRefreshToken } from './auth/tokens.js';
+import { hashPassword as hashPasswordArgon } from './auth/password.js';
+import { verifyAccessToken } from './auth/tokens.js';
 import { getCache } from './cache/redis.js';
 import { metricsMiddleware, register as metricsRegister, withdrawPendingCount } from './observability/metrics.js';
 import { zValidate } from './middleware/validate.js';
-import {
-  RegisterBodySchema,
-  LoginBodySchema,
-  CompanionApplySchema,
-  CreateOrderSchema,
-  ExposureBatchSchema,
-  AdminOperatorPatchSchema
-} from '../shared/schemas.js';
-import { resolveObjectStore, validateUploadMime } from './storage/objectStore.js';
+import { AdminOperatorPatchSchema } from '../shared/schemas.js';
+import { resolveObjectStore } from './storage/objectStore.js';
 import { startSettlementCron } from './jobs/settlementCron.js';
 import {
   registerOpsRoutes,
@@ -41,402 +32,27 @@ import {
   type DeviceBan,
   type ExposureLog,
   type SupportTicket,
-  isDeviceBanned,
 } from './routes/ops.js';
-import { getPaymentVerifier, verifyPaymentIdempotent } from './payments/verifier.js';
 import { initSentry } from './observability/sentry.js';
+import {
+  ROLE_TEMPLATES,
+  type AccountStatus,
+  type AdminPermission,
+  type AdminRoleTemplate,
+  type BanModuleKey,
+  type ModerationReport,
+  type PersistedState,
+  type WithdrawalRequest,
+  type UserRole,
+} from './domain/types.js';
+import type { AppContext } from './app/context.js';
+import { legacyHashPassword as hashPassword, loadState, normalizeUserPassword, saveState } from './state/jsonState.js';
+import { registerAuthRoutes } from './routes/auth.js';
+import { registerBusinessRoutes } from './routes/business.js';
+import { registerFinanceRoutes } from './routes/finance.js';
+import { registerUploadRoutes } from './routes/uploads.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, 'data');
-const DATA_FILE = path.join(DATA_DIR, 'storage.json');
-const STORAGE_SCHEMA_VERSION = 11;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-
-type UserRole = 'USER' | 'PLAYER' | 'ADMIN';
-type AccountStatus = 'ACTIVE' | 'FROZEN' | 'RISK_HOLD';
-type BanModuleKey = 'ORDER' | 'ACCEPT_ORDER' | 'RECHARGE' | 'WITHDRAW' | 'PRIVATE_CHAT' | 'GROUP_CHAT' | 'POST';
-type AdminPermission =
-  | 'COMPANION_REVIEW'
-  | 'ORDER_OPERATE'
-  | 'REVIEW_MODERATE'
-  | 'RISK_REVIEW'
-  | 'FINANCE_RECON'
-  | 'RECHARGE_MANUAL';
-type AdminRoleTemplate = 'SUPER_ADMIN' | 'FINANCE_ADMIN' | 'RISK_ADMIN' | 'CONTENT_ADMIN';
-
-const ROLE_TEMPLATES: Record<AdminRoleTemplate, AdminPermission[]> = {
-  SUPER_ADMIN: ['COMPANION_REVIEW', 'ORDER_OPERATE', 'REVIEW_MODERATE', 'RISK_REVIEW', 'FINANCE_RECON', 'RECHARGE_MANUAL'],
-  FINANCE_ADMIN: ['FINANCE_RECON', 'RECHARGE_MANUAL'],
-  RISK_ADMIN: ['RISK_REVIEW', 'ORDER_OPERATE'],
-  CONTENT_ADMIN: ['COMPANION_REVIEW', 'REVIEW_MODERATE']
-};
-
-type WithdrawalRequest = {
-  id: string;
-  userId: string;
-  diamondAmount: number;
-  feeUsd: number;
-  payoutUsd: number;
-  channel: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  createdAt: number;
-  reviewedAt?: number;
-  reviewedBy?: string;
-  adminNote?: string;
-  orderRef?: string;
-};
-
-type ModerationReport = {
-  id: string;
-  reporterUserId: string;
-  targetType: 'USER' | 'ORDER' | 'COMPANION';
-  targetId: string;
-  reason: string;
-  status: 'PENDING' | 'RESOLVED' | 'DISMISSED';
-  createdAt: number;
-  resolutionNote?: string;
-};
-
-type PersistedState = {
-  schemaVersion: number;
-  rechargeOrders: RechargeOrder[];
-  wallets: Record<string, Wallet>;
-  walletTransactions: WalletTransaction[];
-  diamondWallets: Record<string, { userId: string; balance: number; lastUpdated: number }>;
-  dailyRechargeLimits: Record<string, { amount: number; lastReset: number }>;
-  users: Array<{
-    id: string;
-    username: string;
-    email: string;
-    passwordHash: string;
-    password?: string;
-    role: UserRole;
-    adminRoleTemplate?: AdminRoleTemplate;
-    permissions?: AdminPermission[];
-    createdAt: number;
-    gender?: 'M' | 'F' | 'U';
-    phone?: string;
-    country?: string;
-    lastLoginAt?: number;
-    accountStatus?: AccountStatus;
-    followCount?: number;
-    deviceId?: string;
-    deviceModel?: string;
-    banModules?: Partial<Record<BanModuleKey, boolean>>;
-  }>;
-  sessions: Record<string, { token: string; userId: string; expiresAt: number }>;
-  companions: Array<{
-    id: string;
-    userId: string;
-    gameName: string;
-    intro: string;
-    hourlyRate: number;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED';
-    availability: 'ONLINE' | 'OFFLINE' | 'BUSY';
-    createdAt: number;
-    updatedAt: number;
-    services?: Array<{ id: string; name: string; unitPrice: number; unit: string }>;
-  }>;
-  orders: Array<{
-    id: string;
-    userId: string;
-    companionId: string;
-    serviceName: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-    status: 'CREATED' | 'ACCEPTED' | 'IN_SERVICE' | 'COMPLETED' | 'CANCELLED' | 'DISPUTED';
-    createdAt: number;
-    acceptedAt?: number;
-    startedAt?: number;
-    completedAt?: number;
-    cancelledAt?: number;
-    disputeReason?: string;
-    settlementDone?: boolean;
-    updatedAt?: number;
-  }>;
-  reviews: Array<{
-    id: string;
-    orderId: string;
-    userId: string;
-    companionId: string;
-    rating: number;
-    content: string;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED';
-    moderationReason?: string;
-    createdAt: number;
-    updatedAt?: number;
-  }>;
-  riskEvents: Array<{
-    id: string;
-    type: 'HIGH_FREQUENCY_RECHARGE' | 'ORDER_DISPUTE' | 'NEGATIVE_BALANCE';
-    relatedEntityId: string;
-    severity: 'LOW' | 'MEDIUM' | 'HIGH';
-    status: 'OPEN' | 'RESOLVED';
-    description: string;
-    createdAt: number;
-    resolvedAt?: number;
-    resolvedBy?: string;
-  }>;
-  auditLogs: Array<{
-    id: string;
-    actorUserId: string;
-    action: string;
-    targetType:
-      | 'companion'
-      | 'order'
-      | 'review'
-      | 'risk'
-      | 'finance'
-      | 'recharge'
-      | 'user'
-      | 'withdrawal'
-      | 'report';
-    targetId: string;
-    metadata?: Record<string, unknown>;
-    timestamp: number;
-    prevHash: string;
-    hash: string;
-  }>;
-  withdrawalRequests: WithdrawalRequest[];
-  moderationReports: ModerationReport[];
-  couponTemplates: CouponTemplate[];
-  couponGrants: CouponGrant[];
-  deviceBans: DeviceBan[];
-  exposureLogs: ExposureLog[];
-  tickets: SupportTicket[];
-};
-
-const hashPassword = (password: string, salt = crypto.randomBytes(16).toString('hex')) => {
-  const digest = crypto.scryptSync(password, salt, 64).toString('hex');
-  return `${salt}:${digest}`;
-};
-
-const verifyPassword = (password: string, storedHash: string) => {
-  const [salt, digest] = storedHash.split(':');
-  if (!salt || !digest) return false;
-  const candidate = crypto.scryptSync(password, salt, 64);
-  const expected = Buffer.from(digest, 'hex');
-  return expected.length === candidate.length && crypto.timingSafeEqual(expected, candidate);
-};
-
-const normalizeUserPassword = (user: PersistedState['users'][number]) => {
-  if (!user.passwordHash && user.password) {
-    user.passwordHash = hashPassword(user.password);
-  }
-  delete user.password;
-};
-
-const defaultState = (): PersistedState => ({
-  schemaVersion: STORAGE_SCHEMA_VERSION,
-  rechargeOrders: [],
-  wallets: {},
-  walletTransactions: [],
-  diamondWallets: {},
-  dailyRechargeLimits: {},
-  users: [],
-  sessions: {},
-  companions: [],
-  orders: [],
-  reviews: [],
-  riskEvents: [],
-  auditLogs: [],
-  withdrawalRequests: [],
-  moderationReports: [],
-  couponTemplates: [],
-  couponGrants: [],
-  deviceBans: [],
-  exposureLogs: [],
-  tickets: [],
-});
-
-const migrateState = (raw: unknown): PersistedState => {
-  const base = defaultState();
-  const parsed = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
-  const rawVersion = typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1;
-
-  const merged: PersistedState = {
-    ...base,
-    ...parsed,
-    schemaVersion: rawVersion
-  } as PersistedState;
-
-  // v1 -> v2: align missing timestamps in seed-like data.
-  if (merged.schemaVersion < 2) {
-    Object.values(merged.wallets).forEach(wallet => {
-      if (!wallet.lastUpdated || wallet.lastUpdated <= 0) {
-        wallet.lastUpdated = Date.now();
-      }
-    });
-    merged.users.forEach(user => {
-      if (!user.createdAt || user.createdAt <= 0) {
-        user.createdAt = Date.now();
-      }
-    });
-    merged.schemaVersion = 2;
-  }
-
-  // v2 -> v3: normalize mutable entities with updatedAt.
-  if (merged.schemaVersion < 3) {
-    merged.orders.forEach(order => {
-      if (!order.updatedAt || order.updatedAt <= 0) {
-        order.updatedAt = order.completedAt || order.startedAt || order.acceptedAt || order.createdAt || Date.now();
-      }
-    });
-    merged.reviews.forEach(review => {
-      if (!review.updatedAt || review.updatedAt <= 0) {
-        review.updatedAt = review.createdAt || Date.now();
-      }
-    });
-    merged.schemaVersion = 3;
-  }
-
-  // v3 -> v4: remove expired sessions during startup migration.
-  if (merged.schemaVersion < 4) {
-    Object.keys(merged.sessions).forEach(token => {
-      const session = merged.sessions[token];
-      if (!session || session.expiresAt <= Date.now()) {
-        delete merged.sessions[token];
-      }
-    });
-    merged.schemaVersion = 4;
-  }
-
-  // v4 -> v5: bootstrap admin domain state and permissions.
-    if (merged.schemaVersion < 5) {
-    const adminExists = merged.users.some(user => user.role === 'ADMIN');
-    if (!IS_PRODUCTION && !adminExists && process.env.ALLOW_DEMO_SEED === 'true') {
-      merged.users.push({
-        id: 'admin_1',
-        username: 'ops_admin',
-        email: process.env.ADMIN_EMAIL || 'admin@le3eb.club',
-        passwordHash: hashPassword(process.env.ADMIN_PASSWORD || 'demo-seed-change-me'),
-        role: 'ADMIN',
-        permissions: ['COMPANION_REVIEW', 'ORDER_OPERATE', 'REVIEW_MODERATE', 'RISK_REVIEW', 'FINANCE_RECON', 'RECHARGE_MANUAL'],
-        createdAt: Date.now()
-      });
-    }
-    if (!Array.isArray((merged as any).riskEvents)) {
-      (merged as any).riskEvents = [];
-    }
-    if (!Array.isArray((merged as any).auditLogs)) {
-      (merged as any).auditLogs = [];
-    }
-    merged.users.forEach(user => {
-      if (user.role === 'ADMIN' && (!user.permissions || user.permissions.length === 0)) {
-        user.permissions = ['COMPANION_REVIEW', 'ORDER_OPERATE', 'REVIEW_MODERATE', 'RISK_REVIEW', 'FINANCE_RECON', 'RECHARGE_MANUAL'];
-      }
-    });
-    merged.schemaVersion = 5;
-  }
-
-  // v5 -> v6: normalize admin role templates.
-  if (merged.schemaVersion < 6) {
-    merged.users.forEach(user => {
-      if (user.role === 'ADMIN') {
-        if (!user.adminRoleTemplate) {
-          user.adminRoleTemplate = 'SUPER_ADMIN';
-        }
-        if (!user.permissions || user.permissions.length === 0) {
-          user.permissions = ROLE_TEMPLATES[user.adminRoleTemplate];
-        }
-      }
-    });
-    merged.schemaVersion = 6;
-  }
-
-  if (merged.schemaVersion < 7) {
-    // v6 -> v7 is backward compatible; no data transform required.
-    merged.schemaVersion = 7;
-  }
-
-  if (merged.schemaVersion < 8) {
-    if (!Array.isArray(merged.users)) {
-      merged.users = [];
-    }
-    merged.users.forEach(user => {
-      const u = user as (typeof merged.users)[number];
-      if (!u.gender) u.gender = 'U';
-      if (!u.accountStatus) u.accountStatus = 'ACTIVE';
-      if (typeof u.followCount !== 'number') u.followCount = 0;
-      if (!u.lastLoginAt) u.lastLoginAt = u.createdAt && u.createdAt > 0 ? u.createdAt : Date.now();
-    });
-    if (!Array.isArray(merged.companions)) {
-      merged.companions = [];
-    }
-    merged.companions.forEach(c => {
-      const row = c as (typeof merged.companions)[number];
-      if (!row.services || row.services.length === 0) {
-        row.services = [{ id: 'svc_default', name: `${row.gameName} 陪玩`, unitPrice: row.hourlyRate, unit: '小时' }];
-      }
-    });
-    if (!Array.isArray((merged as any).withdrawalRequests)) {
-      (merged as any).withdrawalRequests = [];
-    }
-    if (!Array.isArray((merged as any).moderationReports)) {
-      (merged as any).moderationReports = [];
-    }
-    merged.schemaVersion = 8;
-  }
-
-  if (merged.schemaVersion < 9) {
-    merged.users.forEach(normalizeUserPassword);
-    merged.schemaVersion = 9;
-  }
-
-  if (merged.schemaVersion < 10) {
-    for (const u of merged.users) {
-      const bm = u.banModules as Record<string, boolean> | undefined;
-      if (bm?.CHAT) {
-        bm.PRIVATE_CHAT = true;
-        bm.GROUP_CHAT = true;
-        delete bm.CHAT;
-      }
-    }
-    merged.schemaVersion = 10;
-  }
-
-  if (merged.schemaVersion < 11) {
-    if (!Array.isArray((merged as PersistedState).couponTemplates)) (merged as PersistedState).couponTemplates = [];
-    if (!Array.isArray((merged as PersistedState).couponGrants)) (merged as PersistedState).couponGrants = [];
-    if (!Array.isArray((merged as PersistedState).deviceBans)) (merged as PersistedState).deviceBans = [];
-    if (!Array.isArray((merged as PersistedState).exposureLogs)) (merged as PersistedState).exposureLogs = [];
-    if (!Array.isArray((merged as PersistedState).tickets)) (merged as PersistedState).tickets = [];
-    merged.schemaVersion = 11;
-  }
-
-  /** 若持久化文件里 users 被写成 [] 或损坏，避免后台「用户管理」全空 */
-  if (!IS_PRODUCTION && (!Array.isArray(merged.users) || merged.users.length === 0)) {
-    merged.users = structuredClone(base.users);
-  }
-
-  merged.users.forEach(normalizeUserPassword);
-
-  merged.schemaVersion = STORAGE_SCHEMA_VERSION;
-  return merged;
-};
-
-const loadState = (): PersistedState => {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DATA_FILE)) {
-    const base = defaultState();
-    fs.writeFileSync(DATA_FILE, JSON.stringify(base, null, 2), 'utf-8');
-    return base;
-  }
-  try {
-    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    const parsed = JSON.parse(raw) as unknown;
-    const migrated = migrateState(parsed);
-    fs.writeFileSync(DATA_FILE, JSON.stringify(migrated, null, 2), 'utf-8');
-    return migrated;
-  } catch (error) {
-    console.error('Failed to load storage.json, fallback to default state:', error);
-    return defaultState();
-  }
-};
 
 async function startServer() {
   const env = loadEnv();
@@ -480,31 +96,6 @@ async function startServer() {
   ];
 
   const state = loadState();
-  /** 防止 JSON 里显式 null 覆盖默认结构，导致 .find / .filter 抛错 → 管理端 500 */
-  const sanitizePersistedState = (s: PersistedState) => {
-    if (!Array.isArray(s.rechargeOrders)) (s as any).rechargeOrders = [];
-    if (!Array.isArray(s.walletTransactions)) (s as any).walletTransactions = [];
-    if (!s.wallets || typeof s.wallets !== 'object' || Array.isArray(s.wallets)) (s as any).wallets = {};
-    if (!s.diamondWallets || typeof s.diamondWallets !== 'object' || Array.isArray(s.diamondWallets)) (s as any).diamondWallets = {};
-    if (!s.dailyRechargeLimits || typeof s.dailyRechargeLimits !== 'object' || Array.isArray(s.dailyRechargeLimits)) {
-      (s as any).dailyRechargeLimits = {};
-    }
-    if (!Array.isArray(s.users)) (s as any).users = [];
-    if (!Array.isArray(s.companions)) (s as any).companions = [];
-    if (!Array.isArray(s.orders)) (s as any).orders = [];
-    if (!Array.isArray(s.reviews)) (s as any).reviews = [];
-    if (!Array.isArray(s.riskEvents)) (s as any).riskEvents = [];
-    if (!Array.isArray(s.auditLogs)) (s as any).auditLogs = [];
-    if (!Array.isArray((s as any).withdrawalRequests)) (s as any).withdrawalRequests = [];
-    if (!Array.isArray((s as any).moderationReports)) (s as any).moderationReports = [];
-    if (!Array.isArray((s as any).couponTemplates)) (s as any).couponTemplates = [];
-    if (!Array.isArray((s as any).couponGrants)) (s as any).couponGrants = [];
-    if (!Array.isArray((s as any).deviceBans)) (s as any).deviceBans = [];
-    if (!Array.isArray((s as any).exposureLogs)) (s as any).exposureLogs = [];
-    if (!Array.isArray((s as any).tickets)) (s as any).tickets = [];
-    if (!s.sessions || typeof s.sessions !== 'object' || Array.isArray(s.sessions)) (s as any).sessions = {};
-  };
-  sanitizePersistedState(state);
 
   const rechargeOrders: RechargeOrder[] = state.rechargeOrders;
   const wallets: Record<string, Wallet> = state.wallets;
@@ -568,39 +159,7 @@ async function startServer() {
   const auditLogs = state.auditLogs || [];
   const withdrawalRequests: WithdrawalRequest[] = state.withdrawalRequests || [];
   const moderationReports: ModerationReport[] = state.moderationReports || [];
-  const MODERATION_BLOCKLIST = ['诈骗', 'fraud', 'scam', '色情', 'porn'];
-  const persistState = () => {
-    fs.writeFileSync(
-      DATA_FILE,
-      JSON.stringify(
-        {
-          schemaVersion: STORAGE_SCHEMA_VERSION,
-          rechargeOrders,
-          wallets,
-          walletTransactions,
-          diamondWallets,
-          dailyRechargeLimits,
-          users,
-          sessions,
-          companions,
-          orders,
-          reviews,
-          riskEvents,
-          auditLogs,
-          withdrawalRequests,
-          moderationReports,
-          couponTemplates,
-          couponGrants,
-          deviceBans,
-          exposureLogs,
-          tickets,
-        } satisfies PersistedState,
-        null,
-        2
-      ),
-      'utf-8'
-    );
-  };
+  const persistState = () => saveState(state);
   const pruneProductionSeedAccounts = () => {
     if (!IS_PRODUCTION || process.env.ALLOW_DEMO_SEED === 'true') return;
     const before = users.length;
@@ -951,472 +510,50 @@ async function startServer() {
     };
   };
 
-  // --- API Routes ---
-  app.post('/api/auth/register', zValidate(RegisterBodySchema), async (req, res) => {
-    const body = (req as express.Request & { validatedBody: { username: string; email: string; password: string; deviceId?: string } }).validatedBody;
-    if (isDeviceBanned(deviceBans, body.deviceId)) {
-      return sendError(res, 403, 'DEVICE_BANNED', 'Device is banned');
-    }
-    if (users.some(u => u.email === body.email)) {
-      return sendError(res, 409, 'AUTH_EMAIL_EXISTS', 'Email already exists');
-    }
-    const user = {
-      id: `user_${Math.random().toString(36).slice(2, 9)}`,
-      username: body.username,
-      email: body.email,
-      passwordHash: await hashPasswordArgon(body.password),
-      role: 'USER' as const,
-      createdAt: Date.now(),
-      gender: 'U' as const,
-      accountStatus: 'ACTIVE' as const,
-      followCount: 0,
-      lastLoginAt: Date.now(),
-      deviceId: body.deviceId
-    };
-    users.push(user);
-    wallets[user.id] = { userId: user.id, balance: 0, lastUpdated: Date.now() };
-    persistState();
-    res.status(201).json({ id: user.id, username: user.username, email: user.email, role: user.role });
-  });
-
-  app.post('/api/auth/login', zValidate(LoginBodySchema), async (req, res) => {
-    const body = (req as express.Request & { validatedBody: { email: string; password: string; deviceId?: string } }).validatedBody;
-    if (isDeviceBanned(deviceBans, body.deviceId)) {
-      return sendError(res, 403, 'DEVICE_BANNED', 'Device is banned');
-    }
-    const user = users.find(u => u.email === body.email);
-    if (user && !user.passwordHash && user.password) {
-      normalizeUserPassword(user);
-      persistState();
-    }
-    if (!user || !user.passwordHash) {
-      return sendError(res, 401, 'AUTH_INVALID_CREDENTIALS', 'Invalid credentials');
-    }
-    const verified = await verifyPasswordArgon(body.password, user.passwordHash);
-    if (!verified.valid) {
-      return sendError(res, 401, 'AUTH_INVALID_CREDENTIALS', 'Invalid credentials');
-    }
-    if (verified.needsRehash) {
-      user.passwordHash = await hashPasswordArgon(body.password);
-    }
-    if (body.deviceId) user.deviceId = body.deviceId;
-    user.lastLoginAt = Date.now();
-    persistState();
-    const access = signAccessToken(user.id, user.role as 'USER' | 'PLAYER' | 'ADMIN');
-    const refresh = await issueRefreshToken(user.id);
-    const legacyToken = createToken();
-    sessions[legacyToken] = { token: legacyToken, userId: user.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 };
-    persistState();
-    res.json({
-      token: access.token,
-      refreshToken: refresh.refreshToken,
-      legacyToken,
-      user: toPublicUser(user)
-    });
-  });
-
-  app.post('/api/auth/refresh', async (req, res) => {
-    const refreshToken = String(req.body?.refreshToken || '');
-    const rotated = await rotateRefreshToken(refreshToken);
-    if (!rotated) return sendError(res, 401, 'AUTH_REFRESH_INVALID', 'Invalid refresh token');
-    const user = getUserById(rotated.userId);
-    if (!user) return sendError(res, 401, 'AUTH_USER_NOT_FOUND', 'User not found');
-    const access = signAccessToken(user.id, user.role as 'USER' | 'PLAYER' | 'ADMIN');
-    res.json({ token: access.token, refreshToken: rotated.refreshToken });
-  });
-
-  app.post('/api/auth/logout', authMiddleware, async (req, res) => {
-    const raw = req.headers.authorization || '';
-    const token = raw.startsWith('Bearer ') ? raw.slice(7) : '';
-    if (token && sessions[token]) {
-      delete sessions[token];
-      persistState();
-    }
-    const refreshToken = String(req.body?.refreshToken || '');
-    if (refreshToken) await revokeRefreshToken(refreshToken);
-    res.json({ ok: true });
-  });
-
-  app.get('/api/auth/session', authMiddleware, (req, res) => {
-    const user = users.find(u => u.id === (req as any).authUserId);
-    if (!user) {
-      return sendError(res, 404, 'AUTH_USER_NOT_FOUND', 'User not found');
-    }
-    res.json(toPublicUser(user));
-  });
-
-  app.post('/api/companions/apply', authMiddleware, zValidate(CompanionApplySchema), (req, res) => {
-    const userId = (req as any).authUserId as string;
-    const { gameName, intro, hourlyRate } = (req as express.Request & { validatedBody: { gameName: string; intro: string; hourlyRate: number } }).validatedBody;
-    const level = levelFromHourlyRate(hourlyRate);
-    const band = assertRateInLevelBand(level, hourlyRate);
-    if (!band.ok) {
-      return sendError(res, 422, 'PRICE_OUT_OF_LEVEL_BAND', 'hourlyRate out of level band', { band: band.band, level });
-    }
-    const existing = companions.find(c => c.userId === userId);
-    if (existing) {
-      existing.gameName = gameName;
-      existing.intro = intro;
-      existing.hourlyRate = hourlyRate;
-      existing.status = 'APPROVED';
-      existing.updatedAt = Date.now();
-      persistState();
-      return res.json(existing);
-    }
-    const companion = {
-      id: `cp_${Math.random().toString(36).slice(2, 9)}`,
-      userId,
-      gameName,
-      intro,
-      hourlyRate,
-      status: 'APPROVED' as const,
-      availability: 'ONLINE' as const,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    companions.push(companion);
-    const user = users.find(u => u.id === userId);
-    if (user) user.role = 'PLAYER';
-    persistState();
-    res.status(201).json(companion);
-  });
-
-  app.patch('/api/companions/:id/availability', authMiddleware, (req, res) => {
-    const companion = companions.find(c => c.id === req.params.id);
-    if (!companion) return sendError(res, 404, 'COMPANION_NOT_FOUND', 'Companion not found');
-    if (companion.userId !== (req as any).authUserId) return sendError(res, 403, 'COMPANION_FORBIDDEN', 'Forbidden');
-    const nextAvailability = req.body?.availability as 'ONLINE' | 'OFFLINE' | 'BUSY';
-    if (!nextAvailability) return sendError(res, 400, 'COMPANION_AVAILABILITY_REQUIRED', 'availability required');
-    companion.availability = nextAvailability;
-    companion.updatedAt = Date.now();
-    persistState();
-    res.json(companion);
-  });
-
-  app.get('/api/companions', (req, res) => {
-    const onlyAvailable = req.query.available === 'true';
-    const list = companions.filter(c => c.status === 'APPROVED' && (!onlyAvailable || c.availability === 'ONLINE'));
-    res.json(list);
-  });
-
-  app.get('/api/companions/rankings', (req, res) => {
-    const limitRaw = Number(req.query.limit || 20);
-    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, Math.floor(limitRaw))) : 20;
-    const ctx = {
-      viewerCountry: String(req.query.country || ''),
-      weights: { wOrder: 0.4, wRating: 0.35, wActive: 0.25, wBizGlobal: 0.15 },
-      nowSeed: Math.floor(Date.now() / 3_600_000),
-    };
-    const candidates = companions
-      .filter(c => c.status === 'APPROVED')
-      .map(companion => {
-        const companionOrders = orders.filter(o => o.companionId === companion.id);
-        const completedOrders = companionOrders.filter(o => o.status === 'COMPLETED');
-        const companionReviews = reviews.filter(r => r.companionId === companion.id && r.status === 'APPROVED');
-        const completedOrderCount = completedOrders.length;
-        const avgRating = companionReviews.length > 0
-          ? companionReviews.reduce((sum, review) => sum + review.rating, 0) / companionReviews.length
-          : 0;
-        const lastCompleted = completedOrders.reduce((max, o) => Math.max(max, o.completedAt || 0), 0);
-        const orderRecencyHours = lastCompleted ? (Date.now() - lastCompleted) / 3_600_000 : 9999;
-        return {
-          companionId: companion.id,
-          level: levelFromHourlyRate(companion.hourlyRate),
-          impressions24h: exposureImpressions24h.get(companion.id) || 0,
-          clicks24h: exposureClicks24h.get(companion.id) || 0,
-          completedOrders30d: completedOrderCount,
-          avgRating,
-          activityScore: Math.min(150, completedOrderCount * 3),
-          orderRecencyHours,
-          availability: companion.availability,
-          _companion: companion,
-          _completedOrderCount: completedOrderCount,
-          _companionReviews: companionReviews,
-          _companionOrders: companionOrders,
-        };
-      });
-    const rankedCore = rankCompanions(
-      candidates.map(({ _companion, _completedOrderCount, _companionReviews, _companionOrders, ...c }) => c),
-      ctx,
-      limit
-    );
-    const ranked = rankedCore.map(row => {
-      const src = candidates.find(c => c.companionId === row.companionId)!;
-      const companion = src._companion;
-      const completedOrderCount = src._completedOrderCount;
-      const companionReviews = src._companionReviews;
-      const totalOrderCount = src._companionOrders.length;
-      const completionRate = totalOrderCount > 0 ? completedOrderCount / totalOrderCount : 0;
-      const totalRevenue = src._companionOrders
-        .filter(o => o.status === 'COMPLETED')
-        .reduce((sum, order) => sum + order.totalPrice, 0);
-      const disputed = src._companionOrders.filter(o => o.status === 'DISPUTED').length;
-      const avgRating = companionReviews.length > 0
-        ? companionReviews.reduce((sum, review) => sum + review.rating, 0) / companionReviews.length
-        : 0;
-      const poolTag = row.pool === 'FEATURED' ? 'HIGH_PERFORMING' as const : row.pool === 'NORMAL' ? 'STABLE' as const : 'NEW' as const;
-      return {
-        rank: row.rank,
-        companionId: companion.id,
-        gameName: companion.gameName,
-        hourlyRate: companion.hourlyRate,
-        availability: companion.availability,
-        avgRating: Number(avgRating.toFixed(2)),
-        completedOrderCount,
-        reviewCount: companionReviews.length,
-        completionRate: Number(completionRate.toFixed(4)),
-        totalRevenue,
-        rankingScore: row.finalScore,
-        poolTag,
-        scoreBreakdown: {
-          quality: Number((row.breakdown.lf || 0).toFixed(4)),
-          volume: Number((row.breakdown.business || 0).toFixed(4)),
-          fulfillment: Number((row.breakdown.personalization || 0).toFixed(4)),
-          revenue: Number((row.breakdown.exposureFactor || 0).toFixed(4)),
-          riskPenalty: Number((disputed * 0.5).toFixed(4)),
-        },
-      };
-    });
-    res.json(ranked);
-  });
-
-  app.post('/api/exposure/batch', (req, res) => {
-    const parsed = ExposureBatchSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return sendError(res, 400, 'INPUT_INVALID', 'Invalid exposure batch');
-    }
-    const viewerId = (req.headers['x-viewer-id'] as string) || undefined;
-    for (const ev of parsed.data.events) {
-      if (ev.type === 'impression') {
-        exposureImpressions24h.set(ev.companionId, (exposureImpressions24h.get(ev.companionId) || 0) + 1);
-      } else if (ev.type === 'click') {
-        exposureClicks24h.set(ev.companionId, (exposureClicks24h.get(ev.companionId) || 0) + 1);
-      }
-      exposureLogs.push({
-        id: `exp_${Math.random().toString(36).slice(2, 9)}`,
-        companionId: ev.companionId,
-        viewerId,
-        eventType: ev.type,
-        createdAt: ev.ts || Date.now(),
-      });
-    }
-    if (parsed.data.events.length > 0) persistState();
-    res.json({ ok: true, accepted: parsed.data.events.length });
-  });
-
-  app.post('/api/orders', authMiddleware, zValidate(CreateOrderSchema), (req, res) => {
-    const userId = (req as any).authUserId as string;
-    const buyer = getUserById(userId);
-    const ban = getBanError(buyer, 'ORDER');
-    if (ban) return sendError(res, 403, 'ORDER_ACTION_BLOCKED', ban);
-    const body = (req as express.Request & { validatedBody: { companionId: string; serviceName?: string; quantity: number; couponGrantId?: string } }).validatedBody;
-    const companion = companions.find(c => c.id === body.companionId && c.status === 'APPROVED');
-    if (!companion) return sendError(res, 404, 'ORDER_COMPANION_NOT_FOUND', 'Companion not found');
-    if (companion.availability !== 'ONLINE') return sendError(res, 409, 'ORDER_COMPANION_UNAVAILABLE', 'Companion unavailable');
-    const level = levelFromHourlyRate(companion.hourlyRate);
-    const priceBand = assertRateInLevelBand(level, companion.hourlyRate);
-    if (!priceBand.ok) {
-      return sendError(res, 422, 'PRICE_OUT_OF_LEVEL_BAND', 'Companion price out of level band', { band: priceBand.band });
-    }
-    const qty = body.quantity;
-    let totalPrice = companion.hourlyRate * qty;
-    let couponGrant: CouponGrant | undefined;
-    if (body.couponGrantId) {
-      couponGrant = couponGrants.find(g => g.id === body.couponGrantId && g.userId === userId);
-      if (!couponGrant || couponGrant.status !== 'ACTIVE' || couponGrant.expiresAt < Date.now()) {
-        return sendError(res, 400, 'COUPON_INVALID', 'Coupon grant invalid');
-      }
-      const tpl = couponTemplates.find(t => t.id === couponGrant!.templateId);
-      if (!tpl) return sendError(res, 400, 'COUPON_TEMPLATE_MISSING', 'Coupon template missing');
-      if (totalPrice < tpl.minSpend) return sendError(res, 400, 'COUPON_MIN_SPEND', 'Order below coupon minimum');
-      const discount = tpl.type === 'FIXED' ? tpl.value : Math.min(totalPrice, totalPrice * (tpl.value / 100));
-      totalPrice = Math.max(0, Math.round((totalPrice - discount) * 100) / 100);
-    }
-    const userWallet = getWallet(userId);
-    if (userWallet.balance < totalPrice) return sendError(res, 409, 'WALLET_INSUFFICIENT_BALANCE', 'Insufficient wallet balance');
-    const order = {
-      id: `ord_${Math.random().toString(36).slice(2, 9)}`,
-      userId,
-      companionId: body.companionId,
-      serviceName: body.serviceName || companion.gameName,
-      quantity: qty,
-      unitPrice: companion.hourlyRate,
-      totalPrice,
-      status: 'CREATED' as const,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    orders.push(order);
-    if (couponGrant) {
-      couponGrant.status = 'USED';
-      couponGrant.usedAt = Date.now();
-      couponGrant.orderId = order.id;
-    }
-    persistState();
-    res.status(201).json(order);
-  });
-
-  app.get('/api/orders', authMiddleware, (req, res) => {
-    const userId = (req as any).authUserId as string;
-    const companion = companions.find(c => c.userId === userId);
-    const list = orders.filter(
-      o => o.userId === userId || (companion && o.companionId === companion.id)
-    );
-    res.json(list);
-  });
-
-  const updateOrderStatus = (
-    orderId: string,
-    allowedCurrent: Array<typeof orders[number]['status']>,
-    nextStatus: typeof orders[number]['status'],
-    actorUserId: string
-  ) => {
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return { errorCode: 'ORDER_NOT_FOUND', errorMessage: 'Order not found', statusCode: 404 as const };
-    const actorCompanion = companions.find(c => c.userId === actorUserId);
-    const isCompanionOwner = actorCompanion?.id === order.companionId;
-    const isUserOwner = order.userId === actorUserId;
-    if (!isCompanionOwner && !isUserOwner) return { errorCode: 'ORDER_FORBIDDEN', errorMessage: 'Forbidden', statusCode: 403 as const };
-    if (nextStatus === 'ACCEPTED' && isCompanionOwner) {
-      const actorUser = getUserById(actorUserId);
-      const ban = getBanError(actorUser, 'ACCEPT_ORDER');
-      if (ban) return { errorCode: 'ORDER_ACTION_BLOCKED', errorMessage: ban, statusCode: 403 as const };
-    }
-    if (!allowedCurrent.includes(order.status)) {
-      return {
-        errorCode: 'ORDER_INVALID_TRANSITION',
-        errorMessage: `Invalid transition from ${order.status}`,
-        statusCode: 409 as const,
-        details: { from: order.status, to: nextStatus }
-      };
-    }
-    order.status = nextStatus;
-    if (nextStatus === 'ACCEPTED') order.acceptedAt = Date.now();
-    if (nextStatus === 'IN_SERVICE') order.startedAt = Date.now();
-    if (nextStatus === 'COMPLETED') order.completedAt = Date.now();
-    if (nextStatus === 'CANCELLED') order.cancelledAt = Date.now();
-    order.updatedAt = Date.now();
-    persistState();
-    return { order };
+  const appContext: AppContext = {
+    rechargePackages: RECHARGE_PACKAGES,
+    rechargeOrders,
+    wallets,
+    walletTransactions,
+    diamondWallets,
+    dailyRechargeLimits,
+    maxDailyRecharge: MAX_DAILY_RECHARGE,
+    users,
+    sessions,
+    companions,
+    orders,
+    reviews,
+    riskEvents,
+    auditLogs,
+    withdrawalRequests,
+    moderationReports,
+    couponTemplates,
+    couponGrants,
+    deviceBans,
+    exposureLogs,
+    tickets,
+    exposureImpressions24h,
+    exposureClicks24h,
+    persistState,
+    authMiddleware,
+    requireAdmin,
+    sendError,
+    createToken,
+    getUserById,
+    toPublicUser,
+    getWallet,
+    addCoins,
+    addDiamonds,
+    getBanError,
+    lifetimeRechargeUsdForUser,
+    adjustCoinsDelta,
+    adjustDiamondDelta,
+    appendAuditLog,
+    createRiskEvent,
   };
 
-  app.post('/api/orders/:id/accept', authMiddleware, (req, res) => {
-    const result = updateOrderStatus(req.params.id, ['CREATED'], 'ACCEPTED', (req as any).authUserId);
-    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
-    res.json(result.order);
-  });
-
-  app.post('/api/orders/:id/start', authMiddleware, (req, res) => {
-    const result = updateOrderStatus(req.params.id, ['ACCEPTED'], 'IN_SERVICE', (req as any).authUserId);
-    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
-    res.json(result.order);
-  });
-
-  app.post('/api/orders/:id/complete', authMiddleware, (req, res) => {
-    const actorUserId = (req as any).authUserId as string;
-    const result = updateOrderStatus(req.params.id, ['IN_SERVICE'], 'COMPLETED', actorUserId);
-    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
-    const order = result.order!;
-    if (!order.settlementDone) {
-      const wallet = getWallet(order.userId);
-      wallet.balance -= order.totalPrice;
-      wallet.lastUpdated = Date.now();
-      walletTransactions.unshift({
-        id: `tx_o_${Math.random().toString(36).slice(2, 9)}`,
-        userId: order.userId,
-        type: 'ORDER_PAY',
-        amount: -order.totalPrice,
-        balanceAfter: wallet.balance,
-        referenceId: order.id,
-        timestamp: Date.now(),
-        description: `Order payment ${order.serviceName}`
-      });
-      const cp = companions.find(c => c.id === order.companionId);
-      if (cp) addDiamonds(cp.userId, order.totalPrice, order.id, `Order income ${order.serviceName}`);
-      order.settlementDone = true;
-      persistState();
-    }
-    res.json(order);
-  });
-
-  app.post('/api/orders/:id/cancel', authMiddleware, (req, res) => {
-    const result = updateOrderStatus(req.params.id, ['CREATED', 'ACCEPTED'], 'CANCELLED', (req as any).authUserId);
-    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
-    res.json(result.order);
-  });
-
-  app.post('/api/orders/:id/dispute', authMiddleware, (req, res) => {
-    const result = updateOrderStatus(req.params.id, ['IN_SERVICE', 'COMPLETED'], 'DISPUTED', (req as any).authUserId);
-    if ('errorCode' in result) return sendError(res, result.statusCode, result.errorCode, result.errorMessage, result.details);
-    result.order!.disputeReason = req.body?.reason || 'No reason provided';
-    createRiskEvent('ORDER_DISPUTE', result.order!.id, 'MEDIUM', `Order dispute submitted: ${result.order!.disputeReason}`);
-    persistState();
-    res.json(result.order);
-  });
-
-  app.post('/api/reviews', authMiddleware, (req, res) => {
-    const userId = (req as any).authUserId as string;
-    const { orderId, rating, content } = req.body || {};
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return sendError(res, 404, 'ORDER_NOT_FOUND', 'Order not found');
-    if (order.userId !== userId) return sendError(res, 403, 'REVIEW_BUYER_ONLY', 'Only buyer can review');
-    if (order.status !== 'COMPLETED') return sendError(res, 409, 'REVIEW_ORDER_NOT_COMPLETED', 'Order not completed');
-    if (reviews.some(r => r.orderId === orderId)) return sendError(res, 409, 'REVIEW_ALREADY_EXISTS', 'Review already exists');
-    const lower = String(content || '').toLowerCase();
-    const blocked = MODERATION_BLOCKLIST.find(keyword => lower.includes(keyword));
-    const review = {
-      id: `rev_${Math.random().toString(36).slice(2, 9)}`,
-      orderId,
-      userId,
-      companionId: order.companionId,
-      rating: Number(rating || 5),
-      content: String(content || ''),
-      status: blocked ? ('REJECTED' as const) : ('APPROVED' as const),
-      moderationReason: blocked ? `Blocked keyword: ${blocked}` : undefined,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    reviews.unshift(review);
-    persistState();
-    res.status(201).json(review);
-  });
-
-  app.get('/api/reviews', authMiddleware, (req, res) => {
-    const userId = (req as any).authUserId as string;
-    const companion = companions.find(c => c.userId === userId);
-    const list = reviews.filter(r => r.userId === userId || (companion && r.companionId === companion.id));
-    res.json(list);
-  });
-
-  app.get('/api/dashboard/business', authMiddleware, (req, res) => {
-    const userId = (req as any).authUserId as string;
-    const companion = companions.find(c => c.userId === userId);
-    const myOrders = orders.filter(
-      o => o.userId === userId || (companion && o.companionId === companion.id)
-    );
-    const myReviews = reviews.filter(
-      r => r.userId === userId || (companion && r.companionId === companion.id)
-    );
-    res.json({
-      userId,
-      role: users.find(u => u.id === userId)?.role || 'USER',
-      wallet: getWallet(userId),
-      diamondWallet: diamondWallets[userId] || { userId, balance: 0, lastUpdated: Date.now() },
-      companion: companion || null,
-      orderSummary: {
-        total: myOrders.length,
-        created: myOrders.filter(o => o.status === 'CREATED').length,
-        inService: myOrders.filter(o => o.status === 'IN_SERVICE').length,
-        completed: myOrders.filter(o => o.status === 'COMPLETED').length,
-        disputed: myOrders.filter(o => o.status === 'DISPUTED').length
-      },
-      reviewSummary: {
-        total: myReviews.length,
-        approved: myReviews.filter(r => r.status === 'APPROVED').length,
-        rejected: myReviews.filter(r => r.status === 'REJECTED').length
-      }
-    });
-  });
+  registerAuthRoutes(app, appContext);
+  registerBusinessRoutes(app, appContext);
 
   const enrichOrder = (o: (typeof orders)[number]) => {
     const buyer = users.find(u => u.id === o.userId);
@@ -2019,244 +1156,7 @@ async function startServer() {
     res.json({ range: { start, end }, items });
   });
 
-  // 1. Get Recharge Packages
-  app.get('/api/recharge/packages', (req, res) => {
-    res.json(RECHARGE_PACKAGES);
-  });
-
-  // 2. Create Recharge Order
-  app.post('/api/recharge/create', authMiddleware, (req, res) => {
-    const authUserId = (req as any).authUserId as string;
-    const { userId: requestedUserId, packageId, paymentMethod } = req.body;
-    const userId = authUserId;
-    if (requestedUserId && requestedUserId !== authUserId) {
-      return sendError(res, 403, 'RECHARGE_USER_MISMATCH', 'User mismatch');
-    }
-    const pkg = RECHARGE_PACKAGES.find(p => p.id === packageId);
-    
-    if (!pkg) return sendError(res, 400, 'RECHARGE_PACKAGE_INVALID', 'Invalid package');
-    const ru = getUserById(userId);
-    if (!ru) return sendError(res, 404, 'RECHARGE_USER_NOT_FOUND', 'User not found');
-    const rban = getBanError(ru, 'RECHARGE');
-    if (rban) return sendError(res, 403, 'RECHARGE_ACTION_BLOCKED', rban);
-
-    // Risk Control: Daily Limit Check
-    const today = new Date().setHours(0, 0, 0, 0);
-    if (!dailyRechargeLimits[userId] || dailyRechargeLimits[userId].lastReset !== today) {
-      dailyRechargeLimits[userId] = { amount: 0, lastReset: today };
-      persistState();
-    }
-    
-    if (dailyRechargeLimits[userId].amount + pkg.amount > MAX_DAILY_RECHARGE) {
-      return sendError(res, 403, 'RECHARGE_DAILY_LIMIT_EXCEEDED', 'Daily recharge limit exceeded', { riskFlag: true });
-    }
-
-    const order: RechargeOrder = {
-      id: `order_${Math.random().toString(36).substr(2, 9)}`,
-      userId,
-      packageId,
-      amount: pkg.amount,
-      coins: pkg.coins + (pkg.bonus || 0),
-      paymentMethod,
-      status: 'PENDING',
-      timestamp: Date.now()
-    };
-
-    rechargeOrders.push(order);
-    persistState();
-    res.json(order);
-  });
-
-  // 3. Verify Payment (Simulated Callback / Webhook)
-  app.post('/api/recharge/verify', authMiddleware, async (req, res) => {
-    const authUserId = (req as any).authUserId as string;
-    const { orderId, transactionId, status } = req.body;
-    const order = rechargeOrders.find(o => o.id === orderId);
-
-    if (!order) return sendError(res, 404, 'RECHARGE_ORDER_NOT_FOUND', 'Order not found');
-    if (order.userId !== authUserId) return sendError(res, 403, 'RECHARGE_VERIFY_FORBIDDEN', 'Forbidden');
-    
-    // Idempotency: Already processed
-    if (order.status === 'SUCCESS') {
-      return res.json({ status: 'SUCCESS', alreadyProcessed: true });
-    }
-
-    order.transactionId = transactionId;
-
-    if (status === 'SUCCESS') {
-      const verifier = getPaymentVerifier();
-      const receipt = String(req.body?.receipt || 'sandbox-ok');
-      const verified = await verifyPaymentIdempotent(verifier, {
-        receipt,
-        productId: order.packageId,
-        transactionId: String(transactionId || order.id),
-      });
-      if (!verified.valid) {
-        return sendError(res, 402, 'PAYMENT_NOT_VERIFIED', 'Payment verification failed');
-      }
-      // Risk Control: Suspicious behavior (e.g., too many orders in short time)
-      const recentOrders = rechargeOrders.filter(o => 
-        o.userId === order.userId && 
-        o.status === 'SUCCESS' && 
-        o.timestamp > Date.now() - 5 * 60 * 1000
-      );
-      
-      if (recentOrders.length > 3) {
-        order.status = 'PENDING'; // Hold for manual review
-        order.riskFlag = true;
-        order.riskReason = 'High frequency recharge';
-        createRiskEvent('HIGH_FREQUENCY_RECHARGE', order.id, 'HIGH', 'Recharge held due to high frequency in short window');
-        persistState();
-        return res.json({ status: 'PENDING', message: 'Order held for review' });
-      }
-
-      order.status = 'SUCCESS';
-      addCoins(order.userId, order.coins, order.id, `Recharge: ${order.amount} USD`);
-      
-      // Update daily limit
-      const today = new Date().setHours(0, 0, 0, 0);
-      if (dailyRechargeLimits[order.userId]) {
-        dailyRechargeLimits[order.userId].amount += order.amount;
-      }
-      persistState();
-      
-      res.json({ status: 'SUCCESS', coins: order.coins });
-    } else {
-      order.status = 'FAILED';
-      persistState();
-      res.json({ status: 'FAILED' });
-    }
-  });
-
-  // 4. Wallet Balance
-  app.get('/api/wallet/balance', authMiddleware, (req, res) => {
-    const userId = (req as any).authUserId as string;
-    res.json(getWallet(userId));
-  });
-
-  // 5. Wallet Transactions
-  app.get('/api/wallet/transactions', authMiddleware, (req, res) => {
-    const userId = (req as any).authUserId as string;
-    const txs = walletTransactions.filter(t => t.userId === userId);
-    res.json(txs);
-  });
-
-  app.post('/api/wallet/withdraw-requests', authMiddleware, (req, res) => {
-    const userId = (req as any).authUserId as string;
-    const u = getUserById(userId);
-    const ban = getBanError(u, 'WITHDRAW');
-    if (ban) return sendError(res, 403, 'WITHDRAW_ACTION_BLOCKED', ban);
-    const diamondAmount = Number(req.body?.diamondAmount || 0);
-    const channel = String(req.body?.channel || 'BANK');
-    if (!Number.isFinite(diamondAmount) || diamondAmount <= 0) {
-      return sendError(res, 400, 'WITHDRAW_DIAMOND_REQUIRED', 'diamondAmount required');
-    }
-    const bal = diamondWallets[userId]?.balance ?? 0;
-    if (bal < diamondAmount) return sendError(res, 400, 'WALLET_INSUFFICIENT_DIAMONDS', 'Insufficient diamonds');
-    const quote = computeWithdraw(diamondAmount);
-    if (!quote.withinLimits) {
-      return sendError(res, 400, quote.reason || 'WITHDRAW_INVALID', 'Withdraw amount out of limits');
-    }
-    const feeUsd = quote.feeUsd;
-    const payoutUsd = quote.payoutUsd;
-    const w: WithdrawalRequest = {
-      id: `wd_${Math.random().toString(36).slice(2, 10)}`,
-      userId,
-      diamondAmount,
-      feeUsd,
-      payoutUsd,
-      channel,
-      status: 'PENDING',
-      createdAt: Date.now(),
-      orderRef: `WD-${Date.now()}`
-    };
-    withdrawalRequests.unshift(w);
-    persistState();
-    res.status(201).json(w);
-  });
-
-  app.post('/api/moderation/reports', authMiddleware, (req, res) => {
-    const reporterUserId = (req as any).authUserId as string;
-    const { targetType, targetId, reason } = req.body || {};
-    if (!targetType || !targetId || !reason) {
-      return sendError(res, 400, 'REPORT_FIELDS_REQUIRED', 'targetType, targetId, reason required');
-    }
-    if (!['USER', 'ORDER', 'COMPANION'].includes(targetType)) {
-      return sendError(res, 400, 'REPORT_TARGET_TYPE_INVALID', 'Invalid targetType');
-    }
-    const rep: ModerationReport = {
-      id: `rep_${Math.random().toString(36).slice(2, 10)}`,
-      reporterUserId,
-      targetType,
-      targetId: String(targetId),
-      reason: String(reason),
-      status: 'PENDING',
-      createdAt: Date.now()
-    };
-    moderationReports.unshift(rep);
-    persistState();
-    res.status(201).json(rep);
-  });
-
-  // 6. Admin: Manual Review / Credit
-  app.post('/api/admin/recharge/manual', authMiddleware, requireAdmin('RECHARGE_MANUAL'), (req, res) => {
-    const { orderId, action } = req.body;
-    const order = rechargeOrders.find(o => o.id === orderId);
-
-    if (!order) return sendError(res, 404, 'RECHARGE_ORDER_NOT_FOUND', 'Order not found');
-    if (order.status !== 'PENDING') return sendError(res, 400, 'RECHARGE_ORDER_STATE_INVALID', 'Order not in pending state');
-
-    if (action === 'APPROVE') {
-      order.status = 'SUCCESS';
-      addCoins(order.userId, order.coins, order.id, `Manual Credit by Admin ${(req as any).authUserId}`);
-      appendAuditLog((req as any).authUserId, 'RECHARGE_APPROVE', 'recharge', order.id, { status: order.status });
-      persistState();
-      res.json({ status: 'SUCCESS' });
-    } else {
-      order.status = 'FAILED';
-      appendAuditLog((req as any).authUserId, 'RECHARGE_REJECT', 'recharge', order.id, { status: order.status });
-      persistState();
-      res.json({ status: 'FAILED' });
-    }
-  });
-
-  // 7. Chargeback Handling
-  app.post('/api/recharge/chargeback', authMiddleware, requireAdmin('RECHARGE_MANUAL'), (req, res) => {
-    const { transactionId } = req.body;
-    const order = rechargeOrders.find(o => o.transactionId === transactionId);
-
-    if (!order || order.status !== 'SUCCESS') {
-      return sendError(res, 404, 'RECHARGE_SUCCESS_ORDER_NOT_FOUND', 'Successful order with this transaction ID not found');
-    }
-
-    order.status = 'REFUNDED';
-    const wallet = getWallet(order.userId);
-    
-    // Deduct coins
-    wallet.balance -= order.coins;
-    wallet.lastUpdated = Date.now();
-    
-    walletTransactions.unshift({
-      id: `tx_cb_${Math.random().toString(36).substr(2, 9)}`,
-      userId: order.userId,
-      type: 'REFUND',
-      amount: -order.coins,
-      balanceAfter: wallet.balance,
-      referenceId: order.id,
-      timestamp: Date.now(),
-      description: `Chargeback for Transaction ${transactionId}`
-    });
-    appendAuditLog((req as any).authUserId, 'RECHARGE_CHARGEBACK', 'recharge', order.id, { transactionId });
-    persistState();
-
-    // Risk: Freeze account if balance becomes negative or too many chargebacks
-    if (wallet.balance < 0) {
-      createRiskEvent('NEGATIVE_BALANCE', order.id, 'HIGH', `Negative wallet balance after chargeback: ${wallet.balance}`);
-      console.log(`User ${order.userId} account frozen due to negative balance after chargeback`);
-    }
-
-    res.json({ status: 'REFUNDED', currentBalance: wallet.balance });
-  });
+  registerFinanceRoutes(app, appContext);
 
   registerOpsRoutes(app, {
     sendError,
@@ -2273,25 +1173,7 @@ async function startServer() {
     appendAuditLog,
   });
 
-  app.post('/api/uploads/signed', authMiddleware, async (req, res) => {
-    const kind = req.body?.kind === 'video' ? 'video' : 'image';
-    const mime = String(req.body?.mime || (kind === 'video' ? 'video/mp4' : 'image/jpeg'));
-    const check = validateUploadMime(mime, kind);
-    if (!check.ok) return sendError(res, 400, 'UPLOAD_MIME_INVALID', 'MIME not allowed');
-    const key = `uploads/${(req as any).authUserId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const store = resolveObjectStore();
-    const signed = await store.presignPut(key, mime, check.maxBytes);
-    res.json({ ...signed, fields: {}, maxBytes: check.maxBytes });
-  });
-
-  app.post('/api/uploads/commit', authMiddleware, (req, res) => {
-    res.status(201).json({
-      id: `asset_${Math.random().toString(36).slice(2, 9)}`,
-      key: req.body?.key,
-      status: 'PENDING',
-      ownerId: (req as any).authUserId,
-    });
-  });
+  registerUploadRoutes(app, appContext);
 
   startSettlementCron(async weekKey => {
     logger.info({ weekKey }, 'settlement_cron_tick');
